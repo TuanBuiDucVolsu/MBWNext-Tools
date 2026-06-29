@@ -382,6 +382,297 @@
     });
   }
 
+  // ---------- Thêm Custom Field ----------
+
+  var FIELD_TYPES = [
+    'Data', 'Link', 'Dynamic Link', 'Select', 'Int', 'Float', 'Currency', 'Percent', 'Check',
+    'Small Text', 'Text', 'Text Editor', 'Code', 'Phone', 'Date', 'Datetime', 'Time',
+    'Table', 'Table MultiSelect', 'Attach', 'Attach Image',
+    'Section Break', 'Column Break', 'Tab Break',
+  ];
+
+  var FIELD_TYPES_NEED_OPTIONS = {
+    'Link': 1, 'Dynamic Link': 1, 'Select': 1, 'Table': 1, 'Table MultiSelect': 1,
+  };
+
+  function canCreateCustomField() {
+    var user = window.frappe && window.frappe.user;
+    if (user && user.has_role) {
+      if (user.has_role('System Manager') || user.has_role('Administrator')) return true;
+    }
+    if (window.frappe && window.frappe.model && window.frappe.model.can_create) {
+      return !!window.frappe.model.can_create('Custom Field');
+    }
+    return false;
+  }
+
+  function getInsertAfterFieldname() {
+    if (!state.inspect || !currentDf || !currentDf.fieldname) return '';
+    return currentDf.fieldname;
+  }
+
+  function labelToFieldname(label) {
+    var name = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    if (!name) return '';
+    return name.indexOf('custom_') === 0 ? name : 'custom_' + name;
+  }
+
+  function normalizeFieldname(raw, label) {
+    var name = raw || labelToFieldname(label);
+    if (!name) return '';
+    return name.indexOf('custom_') === 0 ? name : 'custom_' + name.replace(/^custom_/, '');
+  }
+
+  function fieldnameExists(meta, fieldname) {
+    return meta.fields.some(function (f) { return f.fieldname === fieldname; });
+  }
+
+  function openAddCustomField() {
+    var frm = window.cur_frm;
+    if (!frm) { M.notify('Không có form nào đang mở', 'red'); return; }
+    if (!canCreateCustomField()) {
+      M.notify('Bạn không có quyền tạo Custom Field (cần System Manager hoặc quyền Create Custom Field)', 'red');
+      return;
+    }
+    var dt = frm.doctype;
+    var meta = window.frappe.get_meta && window.frappe.get_meta(dt);
+    if (!meta || !meta.fields) { M.notify('Không lấy được metadata', 'red'); return; }
+
+    var prefillAfter = getInsertAfterFieldname();
+
+    var body = M.showModal('Thêm Custom Field — ' + dt);
+    var modal = document.querySelector('#mbwnext-modal-overlay .mbwnext-modal');
+    if (modal) modal.classList.add('mbwnext-modal-wide');
+
+    var insertOptions = meta.fields
+      .filter(function (f) { return f.fieldname; })
+      .map(function (f) {
+        return '<option value="' + M.escHtml(f.fieldname) + '">' +
+          M.escHtml((f.label || f.fieldname) + ' (' + f.fieldname + ')') + '</option>';
+      }).join('');
+
+    var typeOptions = FIELD_TYPES.map(function (t) {
+      return '<option value="' + t + '">' + t + '</option>';
+    }).join('');
+
+    function inp(id, label, tag, attrs) {
+      attrs = attrs || '';
+      var req = attrs.indexOf('required') >= 0 ? ' <span style="color:#e53935">*</span>' : '';
+      return '<div class="mbwnext-cf-row"><label>' + label + req + '</label>' +
+        '<' + tag + ' id="mbwnext-cf-' + id + '" ' + attrs + '></' + tag + '></div>';
+    }
+    function chk(id, label) {
+      return '<div class="mbwnext-cf-chk"><label><input type="checkbox" id="mbwnext-cf-' + id + '" /> ' + label + '</label></div>';
+    }
+    function sec(title) { return '<div class="mbwnext-cf-sec">' + title + '</div>'; }
+
+    body.innerHTML =
+      '<div class="mbwnext-cf-form">' +
+        sec('Cơ bản') +
+        inp('label', 'Label', 'input', 'placeholder="Tên hiển thị" required') +
+        inp('fieldname', 'Fieldname', 'input', 'placeholder="Tự sinh từ label"') +
+        '<div class="mbwnext-cf-row"><label>Fieldtype</label><select id="mbwnext-cf-type">' + typeOptions + '</select></div>' +
+        '<div class="mbwnext-cf-row" id="mbwnext-cf-options-row">' +
+          '<label>Options <span style="font-weight:400;color:#8a9aab">(Link/Dynamic Link → DocType, Select → mỗi dòng 1)</span></label>' +
+          '<textarea id="mbwnext-cf-options" rows="3"></textarea></div>' +
+        '<div class="mbwnext-cf-row"><label>Insert After</label>' +
+          '<select id="mbwnext-cf-after"><option value="">— Đầu form —</option>' + insertOptions + '</select></div>' +
+
+        sec('Giá trị') +
+        inp('default', 'Default Value', 'input', 'placeholder=""') +
+        inp('placeholder', 'Placeholder', 'input', 'placeholder=""') +
+        inp('description', 'Description', 'input', 'placeholder="Mô tả hiện dưới field"') +
+        inp('length', 'Length', 'input', 'type="number" placeholder="0" min="0"') +
+
+        sec('Fetch') +
+        inp('fetch-from', 'Fetch From', 'input', 'placeholder="link_field.source_field"') +
+        chk('fetch-if-empty', 'Fetch on Save If Empty') +
+
+        sec('Depends On') +
+        inp('depends-on', 'Depends On', 'input', 'placeholder="eval:doc.status==\'Draft\'"') +
+        inp('mandatory-depends-on', 'Mandatory Depends On', 'input', 'placeholder=""') +
+        inp('read-only-depends-on', 'Read Only Depends On', 'input', 'placeholder=""') +
+
+        sec('Thuộc tính') +
+        '<div class="mbwnext-cf-checks">' +
+          chk('reqd', 'Is Mandatory Field') +
+          chk('unique', 'Unique') +
+          chk('read-only', 'Read Only') +
+          chk('hidden', 'Hidden') +
+          chk('allow-on-submit', 'Allow on Submit') +
+          chk('no-copy', 'No Copy') +
+          chk('print-hide', 'Print Hide') +
+          chk('in-list-view', 'In List View') +
+          chk('in-standard-filter', 'In Standard Filter') +
+          chk('bold', 'Bold') +
+        '</div>' +
+
+        '<div class="mbwnext-cf-actions">' +
+          '<button id="mbwnext-cf-submit" class="mbwnext-cf-btn-primary">Tạo Custom Field</button>' +
+        '</div>' +
+        '<div id="mbwnext-cf-msg" style="margin-top:10px"></div>' +
+      '</div>';
+
+    var labelInput = document.getElementById('mbwnext-cf-label');
+    var fnInput = document.getElementById('mbwnext-cf-fieldname');
+    var typeSelect = document.getElementById('mbwnext-cf-type');
+    var optionsRow = document.getElementById('mbwnext-cf-options-row');
+    var afterSelect = document.getElementById('mbwnext-cf-after');
+
+    if (prefillAfter) {
+      var hasAfterOption = false;
+      Array.prototype.forEach.call(afterSelect.options, function (opt) {
+        if (opt.value === prefillAfter) hasAfterOption = true;
+      });
+      if (hasAfterOption) afterSelect.value = prefillAfter;
+      else M.notify('Insert After: field "' + prefillAfter + '" không có trong danh sách', 'blue');
+    }
+
+    labelInput.addEventListener('input', function () {
+      if (!fnInput.dataset.manual) fnInput.value = labelToFieldname(labelInput.value);
+    });
+    fnInput.addEventListener('input', function () { fnInput.dataset.manual = '1'; });
+
+    function toggleOptionsRow() {
+      optionsRow.style.display = FIELD_TYPES_NEED_OPTIONS[typeSelect.value] ? '' : 'none';
+    }
+    typeSelect.addEventListener('change', toggleOptionsRow);
+    toggleOptionsRow();
+
+    function val(id) { var e = document.getElementById('mbwnext-cf-' + id); return e ? e.value.trim() : ''; }
+    function checked(id) { var e = document.getElementById('mbwnext-cf-' + id); return e ? (e.checked ? 1 : 0) : 0; }
+
+    document.getElementById('mbwnext-cf-submit').addEventListener('click', function () {
+      var label = val('label');
+      if (!label) { M.notify('Nhập Label', 'orange'); return; }
+      var fieldname = normalizeFieldname(val('fieldname'), label);
+      if (!fieldname) {
+        M.notify('Không sinh được fieldname từ label. Nhập fieldname thủ công (vd: custom_ghi_chu)', 'orange');
+        return;
+      }
+      if (!/^[a-z][a-z0-9_]*$/.test(fieldname)) {
+        M.notify('Fieldname chỉ gồm chữ thường, số và _ (bắt đầu bằng chữ)', 'orange');
+        return;
+      }
+      if (fieldnameExists(meta, fieldname)) {
+        M.notify('Fieldname "' + fieldname + '" đã tồn tại trên DocType này', 'orange');
+        return;
+      }
+
+      var fieldtype = typeSelect.value;
+      var options = val('options');
+      if (FIELD_TYPES_NEED_OPTIONS[fieldtype] && !options) {
+        M.notify('Fieldtype ' + fieldtype + ' cần nhập Options', 'orange');
+        return;
+      }
+
+      var btn = document.getElementById('mbwnext-cf-submit');
+      var msgEl = document.getElementById('mbwnext-cf-msg');
+      btn.disabled = true; btn.textContent = 'Đang tạo…';
+      msgEl.innerHTML = '';
+
+      var doc = {
+        doctype: 'Custom Field',
+        dt: dt,
+        label: label,
+        fieldname: fieldname,
+        fieldtype: fieldtype,
+      };
+
+      // Giá trị
+      if (options) doc.options = options;
+      if (val('after')) doc.insert_after = val('after');
+      if (val('default')) doc.default = val('default');
+      if (val('placeholder')) doc.placeholder = val('placeholder');
+      if (val('description')) doc.description = val('description');
+      var len = val('length');
+      if (len && parseInt(len) > 0) doc.length = parseInt(len);
+
+      // Fetch
+      if (val('fetch-from')) doc.fetch_from = val('fetch-from');
+      if (checked('fetch-if-empty')) doc.fetch_if_empty = 1;
+
+      // Depends On
+      if (val('depends-on')) doc.depends_on = val('depends-on');
+      if (val('mandatory-depends-on')) doc.mandatory_depends_on = val('mandatory-depends-on');
+      if (val('read-only-depends-on')) doc.read_only_depends_on = val('read-only-depends-on');
+
+      // Thuộc tính
+      if (checked('reqd')) doc.reqd = 1;
+      if (checked('unique')) doc.unique = 1;
+      if (checked('read-only')) doc.read_only = 1;
+      if (checked('hidden')) doc.hidden = 1;
+      if (checked('allow-on-submit')) doc.allow_on_submit = 1;
+      if (checked('no-copy')) doc.no_copy = 1;
+      if (checked('print-hide')) doc.print_hide = 1;
+      if (checked('in-list-view')) doc.in_list_view = 1;
+      if (checked('in-standard-filter')) doc.in_standard_filter = 1;
+      if (checked('bold')) doc.bold = 1;
+
+      window.frappe.call({
+        method: 'frappe.client.insert',
+        args: { doc: doc },
+        callback: function (r) {
+          btn.disabled = false; btn.textContent = 'Tạo Custom Field';
+          if (r.message) {
+            msgEl.innerHTML = '<span style="color:#2e7d32;font-weight:600">Đã tạo field "' + M.escHtml(fieldname) + '". Reload trang để thấy.</span>';
+            M.notify('Đã tạo custom field: ' + fieldname, 'green');
+          }
+        },
+        error: function (err) {
+          btn.disabled = false; btn.textContent = 'Tạo Custom Field';
+          var msg = 'Lỗi tạo field';
+          if (err && err.responseJSON && err.responseJSON._server_messages) {
+            try {
+              var msgs = JSON.parse(err.responseJSON._server_messages);
+              msg = msgs.map(function (m) { try { return JSON.parse(m).message; } catch (e) { return m; } }).join('\n');
+            } catch (e) { /* fallthrough */ }
+          } else if (err && err.message) {
+            msg = String(err.message);
+          }
+          msgEl.textContent = msg;
+          msgEl.style.color = '#e53935';
+          msgEl.style.fontWeight = '600';
+        }
+      });
+    });
+  }
+
+  // ---------- CSS cho Custom Field form ----------
+
+  M.addStyles(`
+    .mbwnext-cf-form { font-size: 13px; }
+    .mbwnext-cf-sec {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px;
+      color: #6b7785; margin: 16px 0 6px; padding: 6px 0 4px;
+      border-top: 1px solid #eef0f2;
+    }
+    .mbwnext-cf-sec:first-child { border-top: none; margin-top: 0; }
+    .mbwnext-cf-row { margin-bottom: 10px; }
+    .mbwnext-cf-row > label { display: block; font-size: 12px; font-weight: 700; color: #1f2933; margin-bottom: 4px; }
+    .mbwnext-cf-row input[type="text"], .mbwnext-cf-row input[type="number"],
+    .mbwnext-cf-row input:not([type]), .mbwnext-cf-row select, .mbwnext-cf-row textarea {
+      width: 100%; border: 1px solid #d1d8dd; border-radius: 6px; padding: 7px 10px;
+      font-size: 13px; box-sizing: border-box; outline: none;
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .mbwnext-cf-row input:focus, .mbwnext-cf-row select:focus, .mbwnext-cf-row textarea:focus { border-color: #2e7d32; }
+    .mbwnext-cf-row textarea { resize: vertical; font-family: 'SF Mono', Consolas, monospace; font-size: 12px; }
+    .mbwnext-cf-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-bottom: 12px; }
+    .mbwnext-cf-chk label {
+      display: flex; align-items: center; gap: 5px; font-size: 12px; color: #3d4f5f;
+      cursor: pointer; padding: 3px 0;
+    }
+    .mbwnext-cf-chk input[type="checkbox"] { margin: 0; accent-color: #2e7d32; }
+    .mbwnext-cf-actions { text-align: right; margin-top: 6px; }
+    .mbwnext-cf-btn-primary {
+      background: #2e7d32; color: #fff; border: none; border-radius: 6px;
+      padding: 8px 22px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .mbwnext-cf-btn-primary:hover { background: #256428; }
+    .mbwnext-cf-btn-primary:disabled { background: #999; cursor: wait; }
+  `);
+
   // ---------- Đăng ký ----------
 
   M.register({ section: 'dev', id: 'hidden', label: 'Hiện field ẩn', kind: 'toggle', stateKey: 'showHidden', poll: true, scan: scanHidden });
@@ -390,6 +681,7 @@
   M.register({ section: 'dev', id: 'fieldnames', label: 'Hiện fieldname', kind: 'toggle', stateKey: 'showFieldnames', poll: true, scan: scanFieldnames });
   M.register({ section: 'dev', id: 'docjson', label: 'Copy doc JSON', kind: 'action', buttonText: 'Copy', onClick: copyDocJSON });
   M.register({ section: 'dev', id: 'api', label: 'Quick API Call', kind: 'action', buttonText: 'Gọi', onClick: openApiDialog });
+  M.register({ section: 'dev', id: 'addfield', label: 'Thêm Custom Field', kind: 'action', buttonText: 'Thêm', onClick: openAddCustomField });
   M.register({ section: 'dev', id: 'customize', label: 'Customize Form', kind: 'action', buttonText: 'Mở', onClick: openCustomizeForm });
 
   setupInspectDelegation();

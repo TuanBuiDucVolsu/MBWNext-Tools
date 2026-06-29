@@ -1,7 +1,7 @@
 /**
  * MBWNext Dev Tools - trien-khai-tools.js
  * Tính năng cho đội triển khai: xuất danh sách field ra CSV, mở nhanh Import CSV,
- * xem Workflow states, xem Permission / Role.
+ * xem Workflow states, xem Permission / Role, mở Report theo DocType.
  *
  * Phụ thuộc common.js (window.MBWNext). Đăng ký nút vào section 'trienkhai'.
  */
@@ -93,6 +93,12 @@
       display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700;
       background: #eef1f5; color: #6b7785;
     }
+    .mbwnext-rpt-filter {
+      width: 100%; border: 1px solid #d1d8dd; border-radius: 6px; padding: 7px 10px;
+      font-size: 13px; box-sizing: border-box; outline: none; margin-bottom: 10px;
+    }
+    .mbwnext-rpt-filter:focus { border-color: #2e7d32; }
+    .mbwnext-rpt-count { font-size: 11px; color: #8a9aab; margin-bottom: 8px; font-weight: 600; }
   `);
 
   // ---------- Helper chung ----------
@@ -167,8 +173,8 @@
   // ---------- Xem Workflow states ----------
 
   function viewWorkflow() {
-    var dt = window.cur_frm && window.cur_frm.doctype;
-    if (!dt) { M.notify('Không có form nào đang mở', 'red'); return; }
+    var dt = getDoctype();
+    if (!dt) { M.notify('Không xác định được DocType', 'red'); return; }
     var body = M.showModal('Workflow — ' + dt);
     var modal = document.querySelector('#mbwnext-modal-overlay .mbwnext-modal');
     if (modal) modal.classList.add('mbwnext-modal-wide');
@@ -422,10 +428,84 @@
     });
   }
 
+  // ---------- Mở Report theo DocType ----------
+
+  function reportUrl(rpt) {
+    return '/app/query-report/' + encodeURIComponent(rpt.name || rpt.report_name);
+  }
+
+  function openReportList() {
+    var dt = getDoctype();
+    if (!dt) { M.notify('Không xác định được DocType', 'red'); return; }
+    var body = M.showModal('Report — ' + dt);
+    var modal = document.querySelector('#mbwnext-modal-overlay .mbwnext-modal');
+    if (modal) modal.classList.add('mbwnext-modal-wide');
+
+    window.frappe.call({
+      method: 'frappe.client.get_list',
+      args: {
+        doctype: 'Report',
+        filters: { ref_doctype: dt, disabled: 0 },
+        fields: ['name', 'report_name', 'report_type', 'is_standard'],
+        order_by: 'report_name asc',
+        limit_page_length: 100,
+      },
+      callback: function (r) {
+        var list = r.message || [];
+        if (!list.length) {
+          body.innerHTML = '<div class="mbwnext-empty">Không có Report nào cho ' + M.escHtml(dt) + '.</div>';
+          return;
+        }
+
+        function buildRows(filter) {
+          var kw = (filter || '').toLowerCase();
+          return list.filter(function (rpt) {
+            return !kw || (rpt.report_name || rpt.name).toLowerCase().indexOf(kw) >= 0;
+          }).map(function (rpt) {
+            var url = reportUrl(rpt);
+            var standard = rpt.is_standard
+              ? '<span class="mbwnext-modal-pill">Yes</span>'
+              : '<span class="mbwnext-perm-none">—</span>';
+            return '<tr style="cursor:pointer" data-url="' + M.escHtml(url) + '">' +
+              '<td class="mbwnext-wf-action" style="color:#1565c0">' + M.escHtml(rpt.report_name || rpt.name) + '</td>' +
+              '<td>' + M.escHtml(rpt.report_type || '') + '</td>' +
+              '<td style="text-align:center">' + standard + '</td></tr>';
+          }).join('');
+        }
+
+        body.innerHTML =
+          '<input id="mbwnext-rpt-filter" placeholder="Tìm report…" class="mbwnext-rpt-filter" />' +
+          '<div id="mbwnext-rpt-count" class="mbwnext-rpt-count">' + list.length + ' report</div>' +
+          '<div class="mbwnext-perm-table-wrap"><table class="mbwnext-perm-table">' +
+          '<thead><tr><th>Tên Report</th><th>Loại</th><th style="text-align:center">Standard</th></tr></thead>' +
+          '<tbody id="mbwnext-rpt-tbody">' + buildRows('') + '</tbody></table></div>';
+
+        var filterInput = document.getElementById('mbwnext-rpt-filter');
+        var tbody = document.getElementById('mbwnext-rpt-tbody');
+        var countEl = document.getElementById('mbwnext-rpt-count');
+
+        filterInput.addEventListener('input', function () {
+          var rows = buildRows(filterInput.value);
+          tbody.innerHTML = rows || '<tr><td colspan="3" class="mbwnext-empty">Không tìm thấy</td></tr>';
+          var matched = tbody.querySelectorAll('tr[data-url]').length;
+          countEl.textContent = matched + ' / ' + list.length + ' report';
+        });
+        filterInput.focus();
+
+        body.addEventListener('click', function (e) {
+          var row = e.target.closest('tr[data-url]');
+          if (row) window.open(row.dataset.url, '_blank');
+        });
+      },
+      error: function () { body.innerHTML = '<div class="mbwnext-empty">Lỗi khi tải danh sách Report.</div>'; }
+    });
+  }
+
   // ---------- Đăng ký ----------
 
   M.register({ section: 'trienkhai', id: 'exportfields', label: 'Xuất field ra CSV', kind: 'action', buttonText: 'Xuất', onClick: exportFieldsCSV });
   M.register({ section: 'trienkhai', id: 'import', label: 'Import CSV', kind: 'action', buttonText: 'Import', onClick: openImportCSV });
+  M.register({ section: 'trienkhai', id: 'reports', label: 'Report', kind: 'action', buttonText: 'Xem', onClick: openReportList });
   M.register({ section: 'trienkhai', id: 'workflow', label: 'Xem Workflow states', kind: 'action', buttonText: 'Xem', onClick: viewWorkflow });
   M.register({ section: 'trienkhai', id: 'permissions', label: 'Xem Permission / Role', kind: 'action', buttonText: 'Xem', onClick: viewPermissions });
 })();
