@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "MBWNext Dev Tools",
-  "version": "1.1.0",
+  "name": "MBWNext Extensions",
+  "version": "1.1.1",
   "description": "Công cụ hỗ trợ debug & phát triển trên hệ thống MBWNext (Frappe/ERPNext): hiện field ẩn, đánh dấu custom field, xem chi tiết field khi hover, Quick API Call, mở nhanh Customize Form.",
   "icons": {
     "48": "icon48.png",

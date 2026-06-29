@@ -1,5 +1,5 @@
 /**
- * MBWNext Dev Tools - trien-khai-tools.js
+ * MBWNext Extensions - trien-khai-tools.js
  * Tính năng cho đội triển khai: xuất danh sách field ra CSV, mở nhanh Import CSV,
  * xem Workflow states, xem Permission / Role, mở Report theo DocType.
  *
@@ -503,9 +503,14 @@
 
   // ---------- Đăng ký ----------
 
-  M.register({ section: 'trienkhai', id: 'exportfields', label: 'Xuất field ra CSV', kind: 'action', buttonText: 'Xuất', onClick: exportFieldsCSV });
-  M.register({ section: 'trienkhai', id: 'import', label: 'Import CSV', kind: 'action', buttonText: 'Import', onClick: openImportCSV });
-  M.register({ section: 'trienkhai', id: 'reports', label: 'Report', kind: 'action', buttonText: 'Xem', onClick: openReportList });
-  M.register({ section: 'trienkhai', id: 'workflow', label: 'Xem Workflow states', kind: 'action', buttonText: 'Xem', onClick: viewWorkflow });
-  M.register({ section: 'trienkhai', id: 'permissions', label: 'Xem Permission / Role', kind: 'action', buttonText: 'Xem', onClick: viewPermissions });
+  M.register({ section: 'trienkhai', id: 'exportfields', label: 'Xuất field ra CSV', kind: 'action', buttonText: 'Xuất', onClick: exportFieldsCSV,
+    helpDesc: 'Tải CSV metadata field (label, fieldname, fieldtype, mandatory, hidden…) làm tài liệu hoặc mapping data.' });
+  M.register({ section: 'trienkhai', id: 'import', label: 'Import CSV', kind: 'action', buttonText: 'Import', onClick: openImportCSV,
+    helpDesc: 'Mở Data Import với DocType hiện tại đã chọn sẵn. Cảnh báo nếu DocType không cho phép import.' });
+  M.register({ section: 'trienkhai', id: 'reports', label: 'Report', kind: 'action', buttonText: 'Xem', onClick: openReportList,
+    helpDesc: 'Liệt kê Report theo DocType, tìm kiếm nhanh, click mở report tab mới. Hoạt động ở Form View và List View.' });
+  M.register({ section: 'trienkhai', id: 'workflow', label: 'Xem Workflow states', kind: 'action', buttonText: 'Xem', onClick: viewWorkflow,
+    helpDesc: 'Xem States (state, doc status, role edit) và Transitions (từ → action → đến, role) của workflow trên DocType.' });
+  M.register({ section: 'trienkhai', id: 'permissions', label: 'Xem Permission / Role', kind: 'action', buttonText: 'Xem', onClick: viewPermissions,
+    helpDesc: 'Xem quyền user hiện tại và bảng DocPerm theo role (read, write, create, delete, submit, import…).' });
 })();

@@ -1,5 +1,5 @@
 /**
- * MBWNext Dev Tools - dev-tools.js
+ * MBWNext Extensions - dev-tools.js
  * Tính năng cho lập trình viên: hiện field ẩn, đánh dấu custom field, inspect field (tooltip),
  * hiện fieldname, copy doc JSON, Quick API Call, mở Customize Form.
  *
@@ -675,14 +675,23 @@
 
   // ---------- Đăng ký ----------
 
-  M.register({ section: 'dev', id: 'hidden', label: 'Hiện field ẩn', kind: 'toggle', stateKey: 'showHidden', poll: true, scan: scanHidden });
-  M.register({ section: 'dev', id: 'custom', label: 'Đánh dấu Custom Field', kind: 'toggle', stateKey: 'highlightCustom', poll: true, scan: scanCustom });
-  M.register({ section: 'dev', id: 'inspect', label: 'Xem chi tiết field (hover)', kind: 'toggle', stateKey: 'inspect', poll: false, onToggle: function (on) { if (!on) hideTooltip(); } });
-  M.register({ section: 'dev', id: 'fieldnames', label: 'Hiện fieldname', kind: 'toggle', stateKey: 'showFieldnames', poll: true, scan: scanFieldnames });
-  M.register({ section: 'dev', id: 'docjson', label: 'Copy doc JSON', kind: 'action', buttonText: 'Copy', onClick: copyDocJSON });
-  M.register({ section: 'dev', id: 'api', label: 'Quick API Call', kind: 'action', buttonText: 'Gọi', onClick: openApiDialog });
-  M.register({ section: 'dev', id: 'addfield', label: 'Thêm Custom Field', kind: 'action', buttonText: 'Thêm', onClick: openAddCustomField });
-  M.register({ section: 'dev', id: 'customize', label: 'Customize Form', kind: 'action', buttonText: 'Mở', onClick: openCustomizeForm });
+  M.register({ section: 'dev', id: 'hidden', label: 'Hiện field ẩn', kind: 'toggle', stateKey: 'showHidden', poll: true, scan: scanHidden,
+    helpDesc: 'Hiện field có hidden=1 trên form (viền đỏ + mờ). Giúp debug nhanh field đang bị ẩn.' });
+  M.register({ section: 'dev', id: 'custom', label: 'Đánh dấu Custom Field', kind: 'toggle', stateKey: 'highlightCustom', poll: true, scan: scanCustom,
+    helpDesc: 'Tô viền trái xanh cho custom field, phân biệt field gốc Frappe vs field thêm qua Customize Form / app.' });
+  M.register({ section: 'dev', id: 'inspect', label: 'Xem chi tiết field (hover)', kind: 'toggle', stateKey: 'inspect', poll: false,
+    onToggle: function (on) { if (!on) hideTooltip(); },
+    helpDesc: 'Hover field để xem tooltip (fieldname, fieldtype, options, mandatory, depends_on…). Click để pin, có Copy fieldname / Copy All.' });
+  M.register({ section: 'dev', id: 'fieldnames', label: 'Hiện fieldname', kind: 'toggle', stateKey: 'showFieldnames', poll: true, scan: scanFieldnames,
+    helpDesc: 'In tag fieldname cạnh label trên form và bảng con. Click tag để copy fieldname.' });
+  M.register({ section: 'dev', id: 'docjson', label: 'Copy doc JSON', kind: 'action', buttonText: 'Copy', onClick: copyDocJSON,
+    helpDesc: 'Copy cur_frm.doc dạng JSON vào clipboard — tiện report bug hoặc so sánh giá trị.' });
+  M.register({ section: 'dev', id: 'api', label: 'Quick API Call', kind: 'action', buttonText: 'Gọi', onClick: openApiDialog,
+    helpDesc: 'Gọi frappe.call với method + args (JSON), xem kết quả ngay — thay mở Console test API.' });
+  M.register({ section: 'dev', id: 'addfield', label: 'Thêm Custom Field', kind: 'action', buttonText: 'Thêm', onClick: openAddCustomField,
+    helpDesc: 'Tạo Custom Field từ form: label, fieldtype, options, insert after, default, fetch from, depends on, các thuộc tính. Cần quyền System Manager.' });
+  M.register({ section: 'dev', id: 'customize', label: 'Customize Form', kind: 'action', buttonText: 'Mở', onClick: openCustomizeForm,
+    helpDesc: 'Mở Customize Form của DocType hiện tại trong tab mới.' });
 
   setupInspectDelegation();
 })();

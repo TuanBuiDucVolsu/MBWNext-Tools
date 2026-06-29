@@ -1,5 +1,5 @@
 /**
- * MBWNext Dev Tools - common.js
+ * MBWNext Extensions - common.js
  * Hạ tầng dùng chung: state, helper, panel UI, polling engine.
  * Các file feature (dev-tools.js, trien-khai-tools.js) gọi MBWNext.register(...) để thêm nút.
  *
@@ -112,7 +112,15 @@
       .mbwnext-panel-header {
         background: #2e7d32; color: #fff; padding: 10px 14px; font-weight: 700; font-size: 14px;
         border-radius: 12px 12px 0 0; letter-spacing: .2px;
+        display: flex; justify-content: space-between; align-items: center;
       }
+      .mbwnext-help-btn {
+        width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.6);
+        background: none; color: rgba(255,255,255,.8); font-size: 13px; font-weight: 800;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        font-family: Georgia, serif; transition: all .15s; line-height: 1; padding: 0;
+      }
+      .mbwnext-help-btn:hover { background: rgba(255,255,255,.2); color: #fff; border-color: #fff; }
       .mbwnext-panel-sub { padding: 8px 14px 0; font-size: 12px; color: #6b7785; font-weight: 600; }
       .mbwnext-panel-sub b { color: #1f2933; font-weight: 700; }
       .mbwnext-panel-body { padding: 2px 14px 12px; overflow-y: auto; }
@@ -164,6 +172,30 @@
       .mbwnext-modal-body tr:hover td { background: #f8f9fb; }
       .mbwnext-modal-body .mbwnext-empty { color: #9aa5b1; padding: 8px 0; font-style: italic; font-size: 12px; }
       .mbwnext-modal-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; background: #e8f5e9; color: #2e7d32; }
+      .mbwnext-modal-wide { width: 680px; max-width: 95vw; }
+      .mbwnext-help-note {
+        font-size: 13px; color: #6b7785; margin-bottom: 16px; padding: 10px 12px;
+        background: #f8f9fb; border-radius: 6px; line-height: 1.6;
+      }
+      .mbwnext-help-section { margin-bottom: 18px; }
+      .mbwnext-help-section:last-of-type { margin-bottom: 0; }
+      .mbwnext-help-section-title {
+        font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px;
+        color: #2e7d32; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #e8f5e9;
+        display: flex; align-items: center; gap: 6px;
+      }
+      .mbwnext-help-item { margin-bottom: 14px; }
+      .mbwnext-help-item:last-child { margin-bottom: 0; }
+      .mbwnext-help-item-name { font-weight: 700; font-size: 16px; color: #1f2933; margin-bottom: 4px; }
+      .mbwnext-help-item-desc { font-size: 14px; color: #4a5568; line-height: 1.6; }
+      .mbwnext-help-item-kind {
+        display: inline-block; margin-top: 5px; padding: 2px 8px; border-radius: 4px;
+        font-size: 12px; font-weight: 700; background: #eef1f5; color: #6b7785;
+      }
+      .mbwnext-help-footer {
+        font-size: 16px; color: #6b7785; border-top: 1px solid #eef0f2;
+        padding-top: 14px; margin-top: 16px; font-weight: 700; text-align: center;
+      }
     `);
   }
 
@@ -278,14 +310,14 @@
     fab.id = 'mbwnext-fab';
     fab.className = 'mbwnext-fab';
     fab.textContent = 'M';
-    fab.title = 'MBWNext Dev Tools';
+    fab.title = 'MBWNext Extensions';
     document.body.appendChild(fab);
 
     var panel = document.createElement('div');
     panel.id = 'mbwnext-panel';
     panel.className = 'mbwnext-panel';
 
-    var html = '<div class="mbwnext-panel-header">MBWNext Dev Tools</div>' +
+    var html = '<div class="mbwnext-panel-header"><span>MBWNext Extensions</span><button class="mbwnext-help-btn" id="mbwnext-help-btn" title="Xem hướng dẫn tính năng">!</button></div>' +
       '<div class="mbwnext-panel-sub"><span id="mbwnext-doctype">-</span></div>' +
       '<div class="mbwnext-panel-body">';
 
@@ -313,6 +345,11 @@
     panel.addEventListener('click', function (e) { e.stopPropagation(); });
     document.addEventListener('click', function () { panel.classList.remove('open'); });
 
+    document.getElementById('mbwnext-help-btn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      openHelpModal();
+    });
+
     // Wire từng feature
     features.forEach(function (f) {
       var btn = panel.querySelector('[data-feature="' + f.id + '"]');
@@ -337,6 +374,41 @@
     });
 
     refreshPolling();
+  }
+
+  // ---------- Help modal (sinh từ features[].helpDesc) ----------
+
+  function openHelpModal() {
+    var body = showModal('Hướng dẫn tính năng — MBWNext Extensions');
+    var modal = document.querySelector('#mbwnext-modal-overlay .mbwnext-modal');
+    if (modal) modal.classList.add('mbwnext-modal-wide');
+
+    var html = '<div class="mbwnext-help-note">Các nút <b>Toggle (ON/OFF)</b> tự lưu trạng thái trên trình duyệt. Nút hành động chạy ngay khi bấm.</div>';
+    var hasItems = false;
+
+    SECTION_ORDER.forEach(function (sec) {
+      var list = features.filter(function (f) {
+        return (f.section || 'dev') === sec && f.helpDesc;
+      });
+      if (!list.length) return;
+      hasItems = true;
+      html += '<div class="mbwnext-help-section">';
+      html += '<div class="mbwnext-help-section-title"><span class="mbwnext-section-icon">' +
+        (SECTION_ICON[sec] || '') + '</span> ' + escHtml(SECTION_LABEL[sec] || sec) + '</div>';
+      list.forEach(function (f) {
+        var kindLabel = f.kind === 'toggle' ? 'Toggle' : ('Nút ' + (f.buttonText || 'Run'));
+        html += '<div class="mbwnext-help-item">' +
+          '<div class="mbwnext-help-item-name">' + escHtml(f.label) + '</div>' +
+          '<div class="mbwnext-help-item-desc">' + escHtml(f.helpDesc) + '</div>' +
+          '<span class="mbwnext-help-item-kind">' + escHtml(kindLabel) + '</span>' +
+          '</div>';
+      });
+      html += '</div>';
+    });
+
+    if (!hasItems) html += '<div class="mbwnext-empty">Chưa có mô tả tính năng.</div>';
+    html += '<div class="mbwnext-help-footer">Made By TuanBD</div>';
+    body.innerHTML = html;
   }
 
   // ---------- Expose API ----------
