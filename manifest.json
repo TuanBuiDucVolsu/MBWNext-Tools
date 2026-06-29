@@ -17,7 +17,7 @@
         "http://127.0.0.1/*",
         "http://127.0.0.1:*/*"
       ],
-      "js": ["inject.js"],
+      "js": ["common.js", "dev-tools.js", "trien-khai-tools.js"],
       "world": "MAIN",
       "run_at": "document_idle"
     }
