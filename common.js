@@ -68,8 +68,32 @@
     return _escDiv.innerHTML;
   }
 
+  function _fallbackCopy(text) {
+    return new Promise(function (resolve, reject) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      // Giữ ngoài viewport nhưng vẫn focus/select được
+      ta.style.position = 'fixed';
+      ta.style.top = '-9999px';
+      ta.style.left = '-9999px';
+      ta.setAttribute('readonly', '');
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { /* ignore */ }
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error('execCommand copy failed'));
+    });
+  }
+
   function copyText(text, btnEl, label) {
-    return navigator.clipboard.writeText(text).then(function () {
+    // navigator.clipboard chỉ tồn tại trong secure context (HTTPS/localhost).
+    // Site HTTP (vd mbw.com:8044) sẽ không có -> fallback execCommand.
+    var p = (navigator.clipboard && navigator.clipboard.writeText)
+      ? navigator.clipboard.writeText(text)
+      : _fallbackCopy(text);
+    return p.then(function () {
       if (btnEl) {
         var orig = btnEl.textContent;
         btnEl.textContent = label || 'Copied!';
