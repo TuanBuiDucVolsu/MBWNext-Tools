@@ -119,6 +119,8 @@
   function csvCell(val) {
     var s = (val === undefined || val === null) ? '' : String(val);
     s = s.replace(/\r?\n/g, ' ').replace(/"/g, '""');
+    // Chặn CSV/formula injection khi mở file bằng Excel (=, +, -, @ ở đầu ô)
+    if (/^[=+\-@]/.test(s)) s = "'" + s;
     return '"' + s + '"';
   }
 
@@ -409,7 +411,7 @@
     html += '</tbody></table></div>';
 
     html += '<div class="mbwnext-perm-footer">' +
-      '<a href="/app/role" target="_blank" rel="noopener">Quản lý Role</a>' +
+      '<a class="mbwnext-link-btn" href="/app/role" target="_blank" rel="noopener">Quản lý Role</a>' +
       '</div>';
 
     body.innerHTML = html;
@@ -501,6 +503,132 @@
     });
   }
 
+  // ---------- Error Log ----------
+
+  M.addStyles(`
+    .mbwnext-err-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; }
+    .mbwnext-err-badge-new { background: #fff3e0; color: #e65100; }
+    .mbwnext-err-badge-seen { background: #eef1f5; color: #6b7785; }
+    .mbwnext-err-detail-box { padding: 8px 0; background: #1a1a2e; border-radius: 8px; margin: 4px 0; }
+    .mbwnext-err-detail-actions { display: flex; justify-content: flex-end; margin-bottom: 6px; padding: 0 10px; }
+    .mbwnext-err-copy { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); color: #fff; }
+    .mbwnext-err-copy:hover { background: rgba(255,255,255,.22); }
+    .mbwnext-err-pre {
+      margin: 0; padding: 0 10px 8px; max-height: 260px; overflow: auto;
+      font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 11px; color: #e0e0e0;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .mbwnext-link-btn {
+      display: inline-block; padding: 5px 14px; border-radius: 8px;
+      border: 1px solid #c8e6c9; background: #e8f5e9;
+      color: #2e7d32 !important; font-size: 12px; font-weight: 700;
+      text-decoration: none !important; transition: all .12s;
+    }
+    .mbwnext-link-btn:hover { background: #d7ecd8; border-color: #a5d6a7; }
+  `);
+
+  function formatDate(dt) {
+    try {
+      if (window.frappe && window.frappe.datetime && window.frappe.datetime.str_to_user) {
+        return window.frappe.datetime.str_to_user(dt);
+      }
+    } catch (e) { /* ignore */ }
+    return String(dt || '');
+  }
+
+  function firstLine(s) {
+    s = String(s || '');
+    var idx = s.indexOf('\n');
+    return idx >= 0 ? s.slice(0, idx) : s;
+  }
+
+  function truncate(s, n) {
+    s = String(s || '');
+    return s.length > n ? s.slice(0, n) + '…' : s;
+  }
+
+  function openErrorLog() {
+    var body = M.showModal('Error Log gần đây');
+    var modal = document.querySelector('#mbwnext-modal-overlay .mbwnext-modal');
+    if (modal) modal.classList.add('mbwnext-modal-wide');
+
+    window.frappe.call({
+      method: 'frappe.client.get_list',
+      args: {
+        doctype: 'Error Log',
+        fields: ['name', 'method', 'error', 'seen', 'creation'],
+        order_by: 'creation desc',
+        limit_page_length: 50,
+      },
+      callback: function (r) { renderErrorLog(body, r.message || []); },
+      error: function () {
+        body.innerHTML = '<div class="mbwnext-empty">Không đọc được Error Log (cần quyền System Manager).</div>';
+      }
+    });
+  }
+
+  function renderErrorLog(body, list) {
+    if (!list.length) {
+      body.innerHTML = '<div class="mbwnext-empty">Không có Error Log nào gần đây.</div>';
+      return;
+    }
+
+    function buildRows(filter) {
+      var kw = (filter || '').toLowerCase();
+      return list.filter(function (e) {
+        return !kw || (e.method || '').toLowerCase().indexOf(kw) >= 0 || (e.error || '').toLowerCase().indexOf(kw) >= 0;
+      }).map(function (e) {
+        var badge = e.seen
+          ? '<span class="mbwnext-err-badge mbwnext-err-badge-seen">Đã xem</span>'
+          : '<span class="mbwnext-err-badge mbwnext-err-badge-new">Mới</span>';
+        return '<tr class="mbwnext-err-row" style="cursor:pointer" data-name="' + M.escHtml(e.name) + '">' +
+          '<td style="white-space:nowrap;color:#6b7785;font-size:11px">' + M.escHtml(formatDate(e.creation)) + '</td>' +
+          '<td style="font-weight:600">' + M.escHtml(truncate(e.method || '-', 40)) + '</td>' +
+          '<td>' + M.escHtml(truncate(firstLine(e.error), 70)) + '</td>' +
+          '<td style="text-align:center">' + badge + '</td></tr>';
+      }).join('');
+    }
+
+    body.innerHTML =
+      '<input id="mbwnext-err-filter" placeholder="Tìm theo method hoặc nội dung lỗi…" class="mbwnext-rpt-filter" />' +
+      '<div id="mbwnext-err-count" class="mbwnext-rpt-count">' + list.length + ' error log</div>' +
+      '<div class="mbwnext-perm-table-wrap"><table class="mbwnext-perm-table">' +
+      '<thead><tr><th>Thời gian</th><th>Method</th><th>Lỗi</th><th style="text-align:center">Trạng thái</th></tr></thead>' +
+      '<tbody id="mbwnext-err-tbody">' + buildRows('') + '</tbody></table></div>' +
+      '<div class="mbwnext-perm-footer"><a class="mbwnext-link-btn" href="/app/error-log" target="_blank" rel="noopener">Mở Error Log List</a></div>';
+
+    var filterInput = document.getElementById('mbwnext-err-filter');
+    var tbody = document.getElementById('mbwnext-err-tbody');
+    var countEl = document.getElementById('mbwnext-err-count');
+
+    filterInput.addEventListener('input', function () {
+      tbody.innerHTML = buildRows(filterInput.value) || '<tr><td colspan="4" class="mbwnext-empty">Không tìm thấy</td></tr>';
+      var matched = tbody.querySelectorAll('tr[data-name]').length;
+      countEl.textContent = matched + ' / ' + list.length + ' error log';
+    });
+    filterInput.focus();
+
+    tbody.addEventListener('click', function (e) {
+      var row = e.target.closest('tr.mbwnext-err-row');
+      if (!row) return;
+      var existing = row.nextElementSibling;
+      if (existing && existing.classList.contains('mbwnext-err-detail')) { existing.remove(); return; }
+      tbody.querySelectorAll('.mbwnext-err-detail').forEach(function (d) { d.remove(); });
+
+      var entry = list.find(function (x) { return x.name === row.dataset.name; });
+      if (!entry) return;
+      var detailTr = document.createElement('tr');
+      detailTr.className = 'mbwnext-err-detail';
+      detailTr.innerHTML = '<td colspan="4"><div class="mbwnext-err-detail-box">' +
+        '<div class="mbwnext-err-detail-actions"><button class="mbwnext-btn mbwnext-err-copy" data-action="copy-err">Copy</button></div>' +
+        '<pre class="mbwnext-err-pre">' + M.escHtml(entry.error || '') + '</pre></div></td>';
+      row.parentNode.insertBefore(detailTr, row.nextSibling);
+      detailTr.querySelector('[data-action="copy-err"]').addEventListener('click', function (ev) {
+        M.copyText(entry.error || '', ev.currentTarget, '✓ Copied');
+      });
+    });
+  }
+
   // ---------- Đăng ký ----------
 
   M.register({ section: 'trienkhai', id: 'exportfields', label: 'Xuất field ra CSV', kind: 'action', buttonText: 'Xuất', onClick: exportFieldsCSV,
@@ -513,4 +641,6 @@
     helpDesc: 'Xem States (state, doc status, role edit) và Transitions (từ → action → đến, role) của workflow trên DocType.' });
   M.register({ section: 'trienkhai', id: 'permissions', label: 'Xem Permission / Role', kind: 'action', buttonText: 'Xem', onClick: viewPermissions,
     helpDesc: 'Xem quyền user hiện tại và bảng DocPerm theo role (read, write, create, delete, submit, import…).' });
+  M.register({ section: 'trienkhai', id: 'errorlog', label: 'Error Log gần đây', kind: 'action', buttonText: 'Xem', onClick: openErrorLog,
+    helpDesc: '50 Error Log mới nhất toàn site, tìm theo method/nội dung lỗi, click 1 dòng để xem traceback đầy đủ + Copy. Cần quyền System Manager.' });
 })();

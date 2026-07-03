@@ -14,6 +14,7 @@ Chrome extension (Manifest V3) hỗ trợ debug/dev/triển khai trên các site
 - **Quick API Call** — gọi `frappe.call` trực tiếp từ dialog: nhập method + args (JSON), xem kết quả + copy.
 - **Thêm Custom Field** — tạo custom field trực tiếp từ form, đầy đủ: label, fieldtype, options, insert after, default, fetch from, depends on, các thuộc tính (mandatory, hidden, read only…).
 - **Customize Form** — mở Customize Form đúng DocType đang xem (tab mới).
+- **Version / Changelog** — xem lịch sử thay đổi (`Version`) của document đang mở: field nào đổi giá trị, dòng con thêm/xoá/sửa, ai sửa lúc nào. Cần DocType bật Track Changes.
 
 ### Triển khai
 
@@ -22,6 +23,7 @@ Chrome extension (Manifest V3) hỗ trợ debug/dev/triển khai trên các site
 - **Report** — liệt kê tất cả Report có ref_doctype là doctype đang xem, có filter tìm kiếm, click mở tab mới. Hoạt động cả ở List View và Form View.
 - **Xem Workflow states** — hiện bảng States + Transitions của workflow active trên doctype. Hoạt động cả ở List View.
 - **Xem Permission / Role** — hiện quyền user hiện tại và bảng DocPerm đầy đủ (role, level, read/write/create/delete/submit…).
+- **Error Log gần đây** — 50 Error Log mới nhất toàn site, tìm theo method/nội dung lỗi, click 1 dòng để xem traceback đầy đủ + Copy. Không cần mở DocType nào, hoạt động ở mọi trang.
 
 ### Chung
 
@@ -56,13 +58,15 @@ Code tách theo nhóm người dùng, chung 1 panel:
 
 ```
 mbwnext-tools/
-├── manifest.json          # Config extension
-├── common.js              # Hạ tầng chung: state, helper, panel UI, polling engine, help modal
-├── dev-tools.js           # Tính năng Dev: field ẩn, custom field, inspect, fieldname,
-│                          #   copy doc JSON, Quick API Call, thêm custom field, Customize Form
-├── trien-khai-tools.js    # Tính năng Triển khai: xuất CSV, import CSV, report, workflow, permission
-├── icon48.png             # Icon extension 48px
-├── icon128.png            # Icon extension 128px
+├── manifest.json              # Config extension
+├── src/
+│   ├── common.js              # Hạ tầng chung: state, helper, panel UI, polling engine, help modal
+│   ├── dev-tools.js           # Tính năng Dev: field ẩn, custom field, inspect, fieldname,
+│   │                          #   copy doc JSON, Quick API Call, thêm custom field, Customize Form
+│   └── trien-khai-tools.js    # Tính năng Triển khai: xuất CSV, import CSV, report, workflow, permission
+├── icons/
+│   ├── icon48.png             # Icon extension 48px
+│   └── icon128.png            # Icon extension 128px
 └── README.md
 ```
 

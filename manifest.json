@@ -4,8 +4,8 @@
   "version": "1.1.1",
   "description": "Công cụ hỗ trợ debug & phát triển trên hệ thống MBWNext (Frappe/ERPNext): hiện field ẩn, đánh dấu custom field, xem chi tiết field khi hover, Quick API Call, mở nhanh Customize Form.",
   "icons": {
-    "48": "icon48.png",
-    "128": "icon128.png"
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "content_scripts": [
     {
@@ -17,7 +17,7 @@
         "http://127.0.0.1/*",
         "http://127.0.0.1:*/*"
       ],
-      "js": ["common.js", "dev-tools.js", "trien-khai-tools.js"],
+      "js": ["src/common.js", "src/dev-tools.js", "src/trien-khai-tools.js"],
       "world": "MAIN",
       "run_at": "document_idle"
     }

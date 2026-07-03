@@ -28,7 +28,7 @@
       position: fixed; z-index: 9999999; background: #1a1a2e; color: #e0e0e0; padding: 0;
       border-radius: 8px; font-size: 12px; max-width: 360px; min-width: 240px; line-height: 1.5;
       pointer-events: auto; box-shadow: 0 8px 30px rgba(0,0,0,.45);
-      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; display: none; overflow: hidden; user-select: text;
+      font-family: 'SF Mono', 'Fira Code', Consolas, monospace; display: none; overflow: hidden; user-select: text;
     }
     .mbwnext-tooltip-header {
       background: #2e7d32; color: #fff; padding: 8px 12px; font-weight: 600; font-size: 13px;
@@ -411,8 +411,14 @@
     return currentDf.fieldname;
   }
 
+  function stripDiacritics(str) {
+    // đ/Đ không decompose qua NFD nên phải map tay
+    return str.normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/đ/g, 'd').replace(/Đ/g, 'D');
+  }
+
   function labelToFieldname(label) {
-    var name = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    var name = stripDiacritics(label).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
     if (!name) return '';
     return name.indexOf('custom_') === 0 ? name : 'custom_' + name;
   }
@@ -420,7 +426,7 @@
   function normalizeFieldname(raw, label) {
     var name = raw || labelToFieldname(label);
     if (!name) return '';
-    return name.indexOf('custom_') === 0 ? name : 'custom_' + name.replace(/^custom_/, '');
+    return name.indexOf('custom_') === 0 ? name : 'custom_' + name;
   }
 
   function fieldnameExists(meta, fieldname) {
@@ -657,7 +663,7 @@
       font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
     }
     .mbwnext-cf-row input:focus, .mbwnext-cf-row select:focus, .mbwnext-cf-row textarea:focus { border-color: #2e7d32; }
-    .mbwnext-cf-row textarea { resize: vertical; font-family: 'SF Mono', Consolas, monospace; font-size: 12px; }
+    .mbwnext-cf-row textarea { resize: vertical; font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 12px; }
     .mbwnext-cf-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-bottom: 12px; }
     .mbwnext-cf-chk label {
       display: flex; align-items: center; gap: 5px; font-size: 12px; color: #3d4f5f;
@@ -672,6 +678,157 @@
     .mbwnext-cf-btn-primary:hover { background: #256428; }
     .mbwnext-cf-btn-primary:disabled { background: #999; cursor: wait; }
   `);
+
+  // ---------- Version / Changelog ----------
+
+  M.addStyles(`
+    .mbwnext-cl-toolbar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+    .mbwnext-cl-entry { padding: 10px 0; border-bottom: 1px solid #f0f1f3; }
+    .mbwnext-cl-entry:last-child { border-bottom: none; }
+    .mbwnext-cl-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+    .mbwnext-cl-owner { font-weight: 700; color: #1f2933; font-size: 12.5px; }
+    .mbwnext-cl-time { font-size: 11px; color: #9aa5b1; }
+    .mbwnext-cl-line { font-size: 12px; color: #374151; padding: 3px 0; line-height: 1.5; }
+    .mbwnext-cl-field { font-weight: 700; color: #1f2933; margin-right: 6px; }
+    .mbwnext-cl-old { color: #c62828; text-decoration: line-through; word-break: break-word; }
+    .mbwnext-cl-arrow { color: #9aa5b1; margin: 0 6px; }
+    .mbwnext-cl-new { color: #2e7d32; font-weight: 600; word-break: break-word; }
+    .mbwnext-cl-tag {
+      display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;
+      margin-right: 6px; text-transform: uppercase; letter-spacing: .3px;
+    }
+    .mbwnext-cl-tag-add { background: #e8f5e9; color: #2e7d32; }
+    .mbwnext-cl-tag-del { background: #ffebee; color: #c62828; }
+    .mbwnext-cl-tag-row { background: #eef1f5; color: #6b7785; }
+    .mbwnext-cl-empty { font-size: 12px; color: #9aa5b1; font-style: italic; }
+  `);
+
+  function parseVersionData(raw) {
+    try { return JSON.parse(raw); } catch (e) { return null; }
+  }
+
+  function formatVersionDate(dt) {
+    try {
+      if (window.frappe && window.frappe.datetime && window.frappe.datetime.str_to_user) {
+        return window.frappe.datetime.str_to_user(dt);
+      }
+    } catch (e) { /* ignore */ }
+    return String(dt || '');
+  }
+
+  function fmtVersionVal(v) {
+    if (v === undefined || v === null || v === '') return '(trống)';
+    if (typeof v === 'object') { try { return JSON.stringify(v); } catch (e) { return String(v); } }
+    var s = String(v);
+    return s.length > 80 ? s.slice(0, 80) + '…' : s;
+  }
+
+  function renderChangelogEntry(v) {
+    var data = parseVersionData(v.data);
+    var html = '<div class="mbwnext-cl-entry">' +
+      '<div class="mbwnext-cl-head"><span class="mbwnext-cl-owner">' + M.escHtml(v.owner || '') + '</span>' +
+      '<span class="mbwnext-cl-time">' + M.escHtml(formatVersionDate(v.creation)) + '</span></div>';
+
+    var lines = [];
+    if (data) {
+      (data.changed || []).forEach(function (c) {
+        lines.push('<div class="mbwnext-cl-line"><span class="mbwnext-cl-field">' + M.escHtml(c[0]) + '</span>' +
+          '<span class="mbwnext-cl-old">' + M.escHtml(fmtVersionVal(c[1])) + '</span>' +
+          '<span class="mbwnext-cl-arrow">&#8594;</span>' +
+          '<span class="mbwnext-cl-new">' + M.escHtml(fmtVersionVal(c[2])) + '</span></div>');
+      });
+      (data.added || []).forEach(function (a) {
+        lines.push('<div class="mbwnext-cl-line"><span class="mbwnext-cl-tag mbwnext-cl-tag-add">+ thêm dòng</span>' +
+          '<b>' + M.escHtml(a[0]) + '</b> (' + ((a[1] && a[1].length) || 0) + ' dòng)</div>');
+      });
+      (data.removed || []).forEach(function (rm) {
+        lines.push('<div class="mbwnext-cl-line"><span class="mbwnext-cl-tag mbwnext-cl-tag-del">- xoá dòng</span>' +
+          '<b>' + M.escHtml(rm[0]) + '</b> (' + ((rm[1] && rm[1].length) || 0) + ' dòng)</div>');
+      });
+      (data.row_changed || []).forEach(function (rc) {
+        var fieldname = rc[0], changes = rc[3] || [];
+        changes.forEach(function (c) {
+          lines.push('<div class="mbwnext-cl-line"><span class="mbwnext-cl-tag mbwnext-cl-tag-row">dòng con</span>' +
+            '<span class="mbwnext-cl-field">' + M.escHtml(fieldname) + '.' + M.escHtml(c[0]) + '</span>' +
+            '<span class="mbwnext-cl-old">' + M.escHtml(fmtVersionVal(c[1])) + '</span>' +
+            '<span class="mbwnext-cl-arrow">&#8594;</span>' +
+            '<span class="mbwnext-cl-new">' + M.escHtml(fmtVersionVal(c[2])) + '</span></div>');
+        });
+      });
+    }
+    if (!lines.length) lines.push('<div class="mbwnext-cl-empty">Tạo mới document / không có thay đổi field theo dõi được.</div>');
+    html += lines.join('') + '</div>';
+    return html;
+  }
+
+  function versionEntryToText(v) {
+    var data = parseVersionData(v.data);
+    var lines = ['[' + formatVersionDate(v.creation) + '] ' + (v.owner || '')];
+    if (data) {
+      (data.changed || []).forEach(function (c) {
+        lines.push('  ' + c[0] + ': ' + fmtVersionVal(c[1]) + ' -> ' + fmtVersionVal(c[2]));
+      });
+      (data.added || []).forEach(function (a) {
+        lines.push('  + ' + a[0] + ' (' + ((a[1] && a[1].length) || 0) + ' dòng)');
+      });
+      (data.removed || []).forEach(function (rm) {
+        lines.push('  - ' + rm[0] + ' (' + ((rm[1] && rm[1].length) || 0) + ' dòng)');
+      });
+      (data.row_changed || []).forEach(function (rc) {
+        var fieldname = rc[0], changes = rc[3] || [];
+        changes.forEach(function (c) {
+          lines.push('  ' + fieldname + '.' + c[0] + ': ' + fmtVersionVal(c[1]) + ' -> ' + fmtVersionVal(c[2]));
+        });
+      });
+    }
+    if (lines.length === 1) lines.push('  (tạo mới / không có thay đổi field theo dõi được)');
+    return lines.join('\n');
+  }
+
+  function changelogToPlainText(list) {
+    return list.map(versionEntryToText).join('\n\n');
+  }
+
+  function renderChangelog(body, list) {
+    if (!list.length) {
+      body.innerHTML = '<div class="mbwnext-empty">Chưa có lịch sử — DocType chưa bật Track Changes hoặc document chưa từng sửa.</div>';
+      return;
+    }
+    body.innerHTML =
+      '<div class="mbwnext-cl-toolbar"><button class="mbwnext-btn" id="mbwnext-cl-copy">Copy</button></div>' +
+      list.map(renderChangelogEntry).join('');
+    var copyBtn = body.querySelector('#mbwnext-cl-copy');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function () {
+        M.copyText(changelogToPlainText(list), copyBtn, '✓ Copied');
+      });
+    }
+  }
+
+  function openChangelog() {
+    var frm = window.cur_frm;
+    if (!frm || !frm.doc) { M.notify('Không có document nào đang mở', 'red'); return; }
+    if (frm.is_new && frm.is_new()) { M.notify('Document chưa được lưu, chưa có lịch sử', 'orange'); return; }
+
+    var body = M.showModal('Version / Changelog — ' + frm.doctype + ' ' + frm.docname);
+    var modal = document.querySelector('#mbwnext-modal-overlay .mbwnext-modal');
+    if (modal) modal.classList.add('mbwnext-modal-wide');
+
+    window.frappe.call({
+      method: 'frappe.client.get_list',
+      args: {
+        doctype: 'Version',
+        filters: { ref_doctype: frm.doctype, docname: frm.docname },
+        fields: ['name', 'owner', 'creation', 'data'],
+        order_by: 'creation desc',
+        limit_page_length: 50,
+      },
+      callback: function (r) { renderChangelog(body, r.message || []); },
+      error: function () {
+        body.innerHTML = '<div class="mbwnext-empty">Không đọc được lịch sử (có thể thiếu quyền đọc Version).</div>';
+      }
+    });
+  }
 
   // ---------- Đăng ký ----------
 
@@ -692,6 +849,8 @@
     helpDesc: 'Tạo Custom Field từ form: label, fieldtype, options, insert after, default, fetch from, depends on, các thuộc tính. Cần quyền System Manager.' });
   M.register({ section: 'dev', id: 'customize', label: 'Customize Form', kind: 'action', buttonText: 'Mở', onClick: openCustomizeForm,
     helpDesc: 'Mở Customize Form của DocType hiện tại trong tab mới.' });
+  M.register({ section: 'dev', id: 'changelog', label: 'Version / Changelog', kind: 'action', buttonText: 'Xem', onClick: openChangelog,
+    helpDesc: 'Xem lịch sử thay đổi (doctype Version) của document đang mở: field nào đổi giá trị, dòng con thêm/xoá/sửa, ai sửa lúc nào. Cần DocType bật Track Changes.' });
 
   setupInspectDelegation();
 })();
