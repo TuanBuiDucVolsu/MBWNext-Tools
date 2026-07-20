@@ -599,6 +599,7 @@
     { keys: 'Alt+A', desc: 'Attachments' },
     { keys: 'Alt+Y', desc: 'In nhanh' },
     { keys: 'Alt+C', desc: 'Custom Field list' },
+    { keys: 'Alt+T', desc: 'Thêm Custom Field' },
     { keys: 'Alt+R', desc: 'Field bắt buộc trống' },
     { keys: 'Alt+F', desc: 'Bật / tắt chế độ tập trung' },
     { keys: 'Alt+J', desc: 'Copy doc JSON (Dev)' },
@@ -700,6 +701,9 @@
         ran = true;
       } else if (code === 'KeyC' && !e.shiftKey) {
         clickFeature('customfields');
+        ran = true;
+      } else if (code === 'KeyT' && !e.shiftKey) {
+        clickFeature('addfield');
         ran = true;
       } else if (code === 'KeyR' && !e.shiftKey) {
         checkRequiredEmpty();

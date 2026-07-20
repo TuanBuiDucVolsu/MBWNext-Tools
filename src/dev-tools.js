@@ -432,6 +432,67 @@
     return meta.fields.some(function (f) { return f.fieldname === fieldname; });
   }
 
+  function getRememberedModule() {
+    try { return localStorage.getItem('mbwnext_cf_module') || ''; } catch (e) { return ''; }
+  }
+
+  function loadModuleOptions(selectEl, preferredModule) {
+    if (!selectEl) return;
+    var remembered = getRememberedModule();
+    var prefer = remembered || preferredModule || '';
+
+    function fill(rows) {
+      var opts = '<option value="">— Không gán (chỉ lưu trên site) —</option>';
+      (rows || []).forEach(function (m) {
+        var name = m.name || m;
+        var app = m.app_name ? ' · ' + m.app_name : '';
+        opts += '<option value="' + M.escHtml(name) + '">' + M.escHtml(name + app) + '</option>';
+      });
+      selectEl.innerHTML = opts;
+      if (prefer) {
+        var found = false;
+        Array.prototype.forEach.call(selectEl.options, function (opt) {
+          if (opt.value === prefer) found = true;
+        });
+        if (found) selectEl.value = prefer;
+      }
+    }
+
+    // Ưu tiên danh sách từ boot (nhanh, không cần API)
+    try {
+      var bootMods = [];
+      if (window.frappe.boot && window.frappe.boot.module_list && window.frappe.boot.module_list.length) {
+        bootMods = window.frappe.boot.module_list.map(function (n) { return { name: n }; });
+      } else if (window.frappe.boot && window.frappe.boot.modules) {
+        bootMods = Object.keys(window.frappe.boot.modules).map(function (n) {
+          var info = window.frappe.boot.modules[n] || {};
+          return { name: n, app_name: info.app_name || info.app || '' };
+        });
+      }
+      if (bootMods.length) fill(bootMods.sort(function (a, b) {
+        return String(a.name).localeCompare(String(b.name));
+      }));
+    } catch (e) { /* fallthrough to API */ }
+
+    window.frappe.call({
+      method: 'frappe.client.get_list',
+      args: {
+        doctype: 'Module Def',
+        fields: ['name', 'app_name'],
+        limit_page_length: 500,
+        order_by: 'name asc',
+      },
+      callback: function (r) {
+        fill(r.message || []);
+      },
+      error: function () {
+        if (!selectEl.options.length || selectEl.options[0].textContent.indexOf('Đang tải') >= 0) {
+          fill([]);
+        }
+      }
+    });
+  }
+
   function openAddCustomField() {
     var frm = window.cur_frm;
     if (!frm) { M.notify('Không có form nào đang mở', 'red'); return; }
@@ -482,6 +543,9 @@
           '<textarea id="mbwnext-cf-options" rows="3"></textarea></div>' +
         '<div class="mbwnext-cf-row"><label>Insert After</label>' +
           '<select id="mbwnext-cf-after"><option value="">— Đầu form —</option>' + insertOptions + '</select></div>' +
+        '<div class="mbwnext-cf-row"><label>Module (Export)</label>' +
+          '<select id="mbwnext-cf-module"><option value="">Đang tải…</option></select>' +
+          '<div class="mbwnext-cf-hint">Gán module để export fixture / đưa vào app. Để trống = chỉ lưu trên site (Customize Form).</div></div>' +
 
         sec('Giá trị') +
         inp('default', 'Default Value', 'input', 'placeholder=""') +
@@ -523,6 +587,7 @@
     var typeSelect = document.getElementById('mbwnext-cf-type');
     var optionsRow = document.getElementById('mbwnext-cf-options-row');
     var afterSelect = document.getElementById('mbwnext-cf-after');
+    var moduleSelect = document.getElementById('mbwnext-cf-module');
 
     if (prefillAfter) {
       var hasAfterOption = false;
@@ -532,6 +597,8 @@
       if (hasAfterOption) afterSelect.value = prefillAfter;
       else M.notify('Insert After: field "' + prefillAfter + '" không có trong danh sách', 'blue');
     }
+
+    loadModuleOptions(moduleSelect, meta.module);
 
     labelInput.addEventListener('input', function () {
       if (!fnInput.dataset.manual) fnInput.value = labelToFieldname(labelInput.value);
@@ -587,6 +654,10 @@
       // Giá trị
       if (options) doc.options = options;
       if (val('after')) doc.insert_after = val('after');
+      if (val('module')) {
+        doc.module = val('module');
+        try { localStorage.setItem('mbwnext_cf_module', doc.module); } catch (e) { /* ignore */ }
+      }
       if (val('default')) doc.default = val('default');
       if (val('placeholder')) doc.placeholder = val('placeholder');
       if (val('description')) doc.description = val('description');
@@ -662,6 +733,7 @@
     }
     .mbwnext-cf-row input:focus, .mbwnext-cf-row select:focus, .mbwnext-cf-row textarea:focus { border-color: #2e7d32; }
     .mbwnext-cf-row textarea { resize: vertical; font-family: var(--mbwnext-font-mono, ui-monospace, Consolas, monospace); font-size: 12px; }
+    .mbwnext-cf-hint { font-size: 11px; color: #8a9aab; margin-top: 4px; line-height: 1.35; font-weight: 500; }
     .mbwnext-cf-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-bottom: 12px; }
     .mbwnext-cf-chk label {
       display: flex; align-items: center; gap: 5px; font-size: 12px; color: #3d4f5f;
@@ -1412,7 +1484,8 @@
   M.register({ section: 'dev', group: 'api', id: 'siteinfo', label: 'Site / Version info', kind: 'action', buttonText: 'Xem', onClick: openSiteInfo,
     helpDesc: 'Xem site name, user, developer_mode, danh sách app và version (từ frappe.boot). Có Copy JSON.' });
   M.register({ section: 'dev', group: 'form', id: 'addfield', label: 'Thêm Custom Field', kind: 'action', buttonText: 'Thêm', onClick: openAddCustomField,
-    helpDesc: 'Tạo Custom Field từ form: label, fieldtype, options, insert after, default, fetch from, depends on, các thuộc tính. Cần quyền System Manager.' });
+    shortcut: 'Alt+T',
+    helpDesc: 'Tạo Custom Field từ form: label, fieldtype, options, insert after, module export, default, fetch from, depends on, các thuộc tính. Cần quyền System Manager.' });
   M.register({ section: 'dev', group: 'form', id: 'customize', label: 'Customize Form', kind: 'action', buttonText: 'Mở', onClick: openCustomizeForm,
     helpDesc: 'Mở Customize Form của DocType hiện tại trong tab mới.' });
   M.register({ section: 'dev', group: 'form', id: 'version', label: 'Version', kind: 'action', buttonText: 'Xem', onClick: openVersion,
