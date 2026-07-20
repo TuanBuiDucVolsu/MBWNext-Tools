@@ -41,7 +41,7 @@ Chrome extension (Manifest V3) hỗ trợ debug/dev/triển khai trên các site
 - **Report** — liệt kê tất cả Report có ref_doctype là doctype đang xem, có filter tìm kiếm, click mở tab mới. Hoạt động cả ở List View và Form View.
 - **Xem Workflow states** — hiện bảng States + Transitions của workflow active trên doctype. Hoạt động cả ở List View.
 - **Xem Permission / Role** — hiện quyền user hiện tại và bảng DocPerm đầy đủ (role, level, read/write/create/delete/submit…).
-- **Linked With** — xem document/DocType liên kết với bản ghi hoặc DocType đang mở.
+- **Linked With** — xem document liên kết (vd. SI từ SO); click để xem nhanh tại chỗ, hoặc mở form / tab mới.
 - **Error Log gần đây** — 50 Error Log mới nhất toàn site, tìm theo method/nội dung lỗi, click 1 dòng để xem traceback đầy đủ + Copy. Không cần mở DocType nào, hoạt động ở mọi trang.
 
 ### Chung

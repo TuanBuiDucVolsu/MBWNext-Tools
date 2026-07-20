@@ -1391,20 +1391,23 @@
     onToggle: onDirtyToggle,
     helpDesc: 'Tô cam các field đã đổi giá trị kể từ lúc bật toggle (hoặc lúc mở document). Giúp thấy nhanh form đang dirty ở field nào.' });
   M.register({ section: 'dev', group: 'overlay', id: 'inspect', label: 'Chi tiết field (hover)', kind: 'toggle', stateKey: 'inspect', poll: false,
-    onToggle: function (on) { if (!on) hideTooltip(); },
+    onToggle: function (on) { if (!on) hideTooltip(); }, shortcut: 'Alt+I',
     helpDesc: 'Hover field để xem tooltip (fieldname, fieldtype, options, mandatory, depends_on…). Click để pin, có Copy fieldname / Copy All.' });
   M.register({ section: 'dev', group: 'overlay', id: 'inspectchild', label: 'Inspect child row', kind: 'toggle', stateKey: 'inspectChild', poll: false,
     onToggle: function (on) { if (!on) closeChildTooltip(); },
     helpDesc: 'Hover dòng trong bảng con để xem idx, name, parentfield + JSON dòng. Click để pin, có Copy JSON.' });
   M.register({ section: 'dev', group: 'overlay', id: 'fieldnames', label: 'Hiện fieldname', kind: 'toggle', stateKey: 'showFieldnames', poll: true, scan: scanFieldnames,
+    shortcut: 'Alt+N',
     helpDesc: 'In tag fieldname cạnh label trên form và bảng con. Click tag để copy fieldname.' });
   M.register({ section: 'dev', group: 'copy', id: 'docjson', label: 'Copy doc JSON', kind: 'action', buttonText: 'Copy', onClick: copyDocJSON,
+    shortcut: 'Alt+J',
     helpDesc: 'Copy cur_frm.doc dạng JSON vào clipboard — tiện report bug hoặc so sánh giá trị.' });
   M.register({ section: 'dev', group: 'copy', id: 'formurl', label: 'Copy form URL', kind: 'action', buttonText: 'Copy', onClick: copyFormUrl,
     helpDesc: 'Copy URL chuẩn của document đang mở (/app/doctype/name) — gửi đồng nghiệp hoặc gắn vào ticket.' });
   M.register({ section: 'dev', group: 'api', id: 'api', label: 'Quick API Call', kind: 'action', buttonText: 'Gọi', onClick: openApiDialog,
     helpDesc: 'Gọi frappe.call với method + args (JSON), xem kết quả ngay — thay mở Console test API.' });
   M.register({ section: 'dev', group: 'api', id: 'getdoc', label: 'Quick get_doc', kind: 'action', buttonText: 'Gọi', onClick: openGetDocDialog,
+    shortcut: 'Alt+G',
     helpDesc: 'Gọi nhanh frappe.client.get / get_value / get_list với DocType + name/filters. Prefill từ form đang mở.' });
   M.register({ section: 'dev', group: 'api', id: 'siteinfo', label: 'Site / Version info', kind: 'action', buttonText: 'Xem', onClick: openSiteInfo,
     helpDesc: 'Xem site name, user, developer_mode, danh sách app và version (từ frappe.boot). Có Copy JSON.' });
@@ -1413,6 +1416,7 @@
   M.register({ section: 'dev', group: 'form', id: 'customize', label: 'Customize Form', kind: 'action', buttonText: 'Mở', onClick: openCustomizeForm,
     helpDesc: 'Mở Customize Form của DocType hiện tại trong tab mới.' });
   M.register({ section: 'dev', group: 'form', id: 'version', label: 'Version', kind: 'action', buttonText: 'Xem', onClick: openVersion,
+    shortcut: 'Alt+V',
     helpDesc: 'Xem lịch sử thay đổi (Version) của document: ai sửa, field nào đổi. Tab So sánh để chọn 2 bản Version và diff. Cần DocType bật Track Changes.' });
 
   setupInspectDelegation();

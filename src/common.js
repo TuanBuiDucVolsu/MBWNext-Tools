@@ -289,9 +289,24 @@
         display: flex; align-items: center; justify-content: space-between; gap: 8px;
         padding: 5px 2px; transition: opacity .1s ease;
       }
-      .mbwnext-row > span:first-child {
+      .mbwnext-row > .mbwnext-row-label {
         font-size: var(--mbwnext-fs-sm); color: #1f2933; font-weight: 600; line-height: 1.25;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        min-width: 0; flex: 1;
+      }
+      .mbwnext-row-label[data-shortcut] { cursor: help; }
+      .mbwnext-shortcut-tip {
+        position: fixed; z-index: 2147483646;
+        padding: 5px 9px; border-radius: 6px;
+        background: #1f2933; color: #fff;
+        font-size: 11px; font-weight: 700; letter-spacing: .2px;
+        white-space: nowrap; pointer-events: none;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, .2);
+        opacity: 0; transform: translateY(2px);
+        transition: opacity .12s ease, transform .12s ease;
+      }
+      .mbwnext-shortcut-tip.show {
+        opacity: 1; transform: translateY(0);
       }
       .mbwnext-row + .mbwnext-row { border-top: 1px solid #f5f6f7; }
       .mbwnext-btn {
@@ -577,8 +592,55 @@
     var control = f.kind === 'toggle'
       ? '<button class="mbwnext-switch" data-feature="' + f.id + '" role="switch" aria-checked="false"><span class="mbwnext-switch-knob"></span></button>'
       : '<button class="mbwnext-btn" data-feature="' + f.id + '">' + escHtml(f.buttonText || 'Run') + '</button>';
-    return '<div class="mbwnext-row" data-label="' + escHtml(f.label.toLowerCase()) + '" title="' + escHtml(f.label) + '">' +
-      '<span>' + escHtml(f.label) + '</span>' + control + '</div>';
+    var tip = f.shortcut ? ('Phím tắt: ' + f.shortcut) : '';
+    var labelAttrs = tip
+      ? ' class="mbwnext-row-label" data-shortcut="' + escHtml(tip) + '"'
+      : ' class="mbwnext-row-label"';
+    return '<div class="mbwnext-row" data-label="' + escHtml(f.label.toLowerCase()) + '">' +
+      '<span' + labelAttrs + '>' + escHtml(f.label) + '</span>' + control + '</div>';
+  }
+
+  var shortcutTipEl = null;
+  function ensureShortcutTip() {
+    if (shortcutTipEl) return shortcutTipEl;
+    shortcutTipEl = document.createElement('div');
+    shortcutTipEl.className = 'mbwnext-shortcut-tip';
+    document.body.appendChild(shortcutTipEl);
+    return shortcutTipEl;
+  }
+  function hideShortcutTip() {
+    if (!shortcutTipEl) return;
+    shortcutTipEl.classList.remove('show');
+  }
+  function showShortcutTip(labelEl) {
+    var text = labelEl && labelEl.getAttribute('data-shortcut');
+    if (!text) { hideShortcutTip(); return; }
+    var tip = ensureShortcutTip();
+    tip.textContent = text;
+    tip.classList.add('show');
+    var r = labelEl.getBoundingClientRect();
+    var tw = tip.offsetWidth || 120;
+    var th = tip.offsetHeight || 24;
+    var left = Math.max(8, Math.min(r.left, window.innerWidth - tw - 8));
+    var top = r.top - th - 8;
+    if (top < 8) top = r.bottom + 8;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+  }
+  function setupShortcutTips(panel) {
+    panel.addEventListener('mouseover', function (e) {
+      var label = e.target.closest('.mbwnext-row-label[data-shortcut]');
+      if (!label || !panel.contains(label)) return;
+      showShortcutTip(label);
+    });
+    panel.addEventListener('mouseout', function (e) {
+      var label = e.target.closest('.mbwnext-row-label[data-shortcut]');
+      if (!label) return;
+      var to = e.relatedTarget;
+      if (to && label.contains(to)) return;
+      hideShortcutTip();
+    });
+    panel.addEventListener('scroll', hideShortcutTip, true);
   }
 
   function buildUI() {
@@ -589,7 +651,7 @@
     fab.id = 'mbwnext-fab';
     fab.className = 'mbwnext-fab';
     fab.innerHTML = 'M<span class="mbwnext-fab-badge" id="mbwnext-fab-badge"></span>';
-    fab.title = 'MBWNext Extensions';
+    fab.title = 'MBWNext Extensions (Alt+M)';
     document.body.appendChild(fab);
 
     var panel = document.createElement('div');
@@ -638,6 +700,7 @@
     html += '</div>';
     panel.innerHTML = html;
     document.body.appendChild(panel);
+    setupShortcutTips(panel);
 
     var searchInput = document.getElementById('mbwnext-search');
     searchInput.addEventListener('input', function () { filterFeatureRows(panel, searchInput.value); });
@@ -647,7 +710,10 @@
       togglePanel();
     });
     panel.addEventListener('click', function (e) { e.stopPropagation(); });
-    document.addEventListener('click', function () { panel.classList.remove('open'); });
+    document.addEventListener('click', function () {
+      panel.classList.remove('open');
+      hideShortcutTip();
+    });
 
     document.getElementById('mbwnext-help-btn').addEventListener('click', function (e) {
       e.stopPropagation();
@@ -736,6 +802,7 @@
     if (!panel) return;
     var open = forceOpen === undefined ? !panel.classList.contains('open') : !!forceOpen;
     panel.classList.toggle('open', open);
+    if (!open) hideShortcutTip();
     var dtEl = document.getElementById('mbwnext-doctype');
     if (dtEl) dtEl.textContent = (window.cur_frm && window.cur_frm.doctype) || '-';
     if (open && searchInput) setTimeout(function () { searchInput.focus(); }, 160);

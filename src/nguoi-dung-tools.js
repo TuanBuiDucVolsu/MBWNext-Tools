@@ -736,28 +736,28 @@
 
   M.register({
     section: 'nguoidung', group: 'navigate', id: 'findfield', label: 'Tìm field trên form',
-    kind: 'action', buttonText: 'Tìm', onClick: openFindField,
+    kind: 'action', buttonText: 'Tìm', onClick: openFindField, shortcut: 'Alt+/',
     helpDesc: 'Tìm field theo label tiếng Việt/Anh (có hoặc không dấu) hoặc fieldname, click để cuộn tới và tô sáng trên form.'
   });
   M.register({
     section: 'nguoidung', group: 'navigate', id: 'recent', label: 'Lịch sử gần đây',
-    kind: 'action', buttonText: 'Xem', onClick: openRecent,
+    kind: 'action', buttonText: 'Xem', onClick: openRecent, shortcut: 'Alt+H',
     helpDesc: 'Danh sách document vừa mở trên trình duyệt này (lưu local). Click để mở tab mới.'
   });
   M.register({
     section: 'nguoidung', group: 'navigate', id: 'sharelink', label: 'Copy link chia sẻ',
-    kind: 'action', buttonText: 'Copy', onClick: copyShareLink,
+    kind: 'action', buttonText: 'Copy', onClick: copyShareLink, shortcut: 'Alt+L',
     helpDesc: 'Copy link document đang mở để gửi đồng nghiệp.'
   });
 
   M.register({
     section: 'nguoidung', group: 'info', id: 'quickprint', label: 'In nhanh',
-    kind: 'action', buttonText: 'In', onClick: openQuickPrint,
+    kind: 'action', buttonText: 'In', onClick: openQuickPrint, shortcut: 'Alt+Y',
     helpDesc: 'Mở printview hoặc chọn Print Format của document đang mở.'
   });
   M.register({
     section: 'nguoidung', group: 'info', id: 'attachments', label: 'Attachments',
-    kind: 'action', buttonText: 'Xem', onClick: openAttachments,
+    kind: 'action', buttonText: 'Xem', onClick: openAttachments, shortcut: 'Alt+A',
     helpDesc: 'Liệt kê file đính kèm của document, click Mở để xem/tải.'
   });
   M.register({
@@ -768,17 +768,17 @@
 
   M.register({
     section: 'nguoidung', group: 'helpers', id: 'reqempty', label: 'Field bắt buộc trống',
-    kind: 'action', buttonText: 'Kiểm tra', onClick: checkRequiredEmpty,
+    kind: 'action', buttonText: 'Kiểm tra', onClick: checkRequiredEmpty, shortcut: 'Alt+R',
     helpDesc: 'Liệt kê field bắt buộc còn trống, tô đỏ trên form, click để nhảy tới.'
   });
   M.register({
     section: 'nguoidung', group: 'helpers', id: 'focus', label: 'Chế độ tập trung',
-    kind: 'toggle', stateKey: 'focusMode', poll: false, onToggle: onFocusToggle,
+    kind: 'toggle', stateKey: 'focusMode', poll: false, onToggle: onFocusToggle, shortcut: 'Alt+F',
     helpDesc: 'Ẩn tạm navbar / sidebar Frappe để form rộng hơn, dễ làm việc.'
   });
   M.register({
     section: 'nguoidung', group: 'helpers', id: 'shortcuthelp', label: 'Xem bảng phím tắt',
-    kind: 'action', buttonText: 'Xem', onClick: openShortcutHelp,
+    kind: 'action', buttonText: 'Xem', onClick: openShortcutHelp, shortcut: 'Alt+K',
     helpDesc: 'Xem danh sách phím tắt Alt (luôn bật). Esc đóng modal.'
   });
 

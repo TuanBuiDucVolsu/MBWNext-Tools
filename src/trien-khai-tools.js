@@ -702,6 +702,127 @@
     });
   }
 
+  function docstatusLabel(ds) {
+    if (ds === 0 || ds === '0') return 'Draft';
+    if (ds === 1 || ds === '1') return 'Submitted';
+    if (ds === 2 || ds === '2') return 'Cancelled';
+    return String(ds == null ? '' : ds);
+  }
+
+  function formatPreviewValue(val) {
+    if (val == null || val === '') return '—';
+    if (typeof val === 'object') {
+      try { return JSON.stringify(val); } catch (e) { return String(val); }
+    }
+    return String(val);
+  }
+
+  function pickPreviewFields(doctype, doc) {
+    var preferred = [
+      'name', 'title', 'status', 'docstatus', 'customer', 'customer_name', 'supplier',
+      'supplier_name', 'company', 'posting_date', 'transaction_date', 'delivery_date',
+      'due_date', 'currency', 'grand_total', 'rounded_total', 'total', 'net_total',
+      'outstanding_amount', 'per_billed', 'per_delivered', 'workflow_state',
+      'owner', 'modified', 'modified_by'
+    ];
+    var labels = {};
+    var fromMeta = [];
+    try {
+      var meta = window.frappe.get_meta && window.frappe.get_meta(doctype);
+      if (meta && meta.fields) {
+        meta.fields.forEach(function (df) {
+          if (!df || !df.fieldname || df.fieldtype === 'Table' || df.fieldtype === 'Section Break' ||
+              df.fieldtype === 'Column Break' || df.fieldtype === 'Tab Break' || df.fieldtype === 'HTML') return;
+          labels[df.fieldname] = df.label || df.fieldname;
+          if (df.in_list_view || df.in_standard_filter || df.reqd) fromMeta.push(df.fieldname);
+        });
+      }
+    } catch (e) { /* ignore */ }
+
+    var seen = {};
+    var fields = [];
+    function add(fn) {
+      if (!fn || seen[fn] || doc[fn] == null || doc[fn] === '') return;
+      seen[fn] = true;
+      fields.push(fn);
+    }
+    preferred.forEach(add);
+    fromMeta.forEach(add);
+    // tối đa ~18 field cho gọn
+    return fields.slice(0, 18).map(function (fn) {
+      return { fieldname: fn, label: labels[fn] || fn };
+    });
+  }
+
+  function previewLinkedDoc(body, doctype, name, onBack) {
+    var url = '/app/' + slugDoctype(doctype) + '/' + encodeURIComponent(name);
+    body.innerHTML = '<div class="mbwnext-empty">Đang tải ' + M.escHtml(doctype) + ' ' + M.escHtml(name) + '…</div>';
+
+    window.frappe.call({
+      method: 'frappe.client.get',
+      args: { doctype: doctype, name: name },
+      callback: function (r) {
+        var doc = r.message;
+        if (!doc) {
+          body.innerHTML = '<div class="mbwnext-empty">Không đọc được document.</div>' +
+            '<button class="mbwnext-btn" data-action="link-back" style="margin-top:10px">← Quay lại</button>';
+          body.querySelector('[data-action="link-back"]').addEventListener('click', onBack);
+          return;
+        }
+
+        var rows = pickPreviewFields(doctype, doc);
+        var statusText = doc.status || docstatusLabel(doc.docstatus);
+        body.innerHTML =
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">' +
+            '<button class="mbwnext-btn" data-action="link-back">← Quay lại</button>' +
+            '<button class="mbwnext-btn" data-action="link-open" style="background:#2e7d32;color:#fff;border-color:#2e7d32">Mở form</button>' +
+            '<button class="mbwnext-btn" data-action="link-tab">Tab mới</button>' +
+            '<span class="mbwnext-modal-pill">' + M.escHtml(statusText) + '</span>' +
+          '</div>' +
+          '<div class="mbwnext-rpt-count" style="margin-bottom:10px">' +
+            M.escHtml(doctype) + ' · <b>' + M.escHtml(name) + '</b>' +
+            '<span style="color:#9aa5b1;font-weight:600"> — xem nhanh, vẫn đang ở form hiện tại</span>' +
+          '</div>' +
+          '<div class="mbwnext-perm-table-wrap"><table class="mbwnext-perm-table">' +
+          '<tbody>' +
+          rows.map(function (f) {
+            var val = doc[f.fieldname];
+            if (f.fieldname === 'docstatus') val = docstatusLabel(val);
+            return '<tr><td style="width:38%;color:#6b7785;font-weight:600">' + M.escHtml(f.label) +
+              '</td><td>' + M.escHtml(formatPreviewValue(val)) + '</td></tr>';
+          }).join('') +
+          '</tbody></table></div>';
+
+        body.querySelector('[data-action="link-back"]').addEventListener('click', onBack);
+        body.querySelector('[data-action="link-open"]').addEventListener('click', function () {
+          M.closeModal();
+          try {
+            if (window.frappe && frappe.set_route) {
+              frappe.set_route('Form', doctype, name);
+              return;
+            }
+          } catch (e) { /* fallthrough */ }
+          window.location.href = url;
+        });
+        body.querySelector('[data-action="link-tab"]').addEventListener('click', function () {
+          window.open(url, '_blank');
+        });
+      },
+      error: function () {
+        body.innerHTML =
+          '<div class="mbwnext-empty">Không đọc được document (thiếu quyền?).</div>' +
+          '<div style="display:flex;gap:8px;margin-top:10px">' +
+            '<button class="mbwnext-btn" data-action="link-back">← Quay lại</button>' +
+            '<button class="mbwnext-btn" data-action="link-tab">Mở tab mới</button>' +
+          '</div>';
+        body.querySelector('[data-action="link-back"]').addEventListener('click', onBack);
+        body.querySelector('[data-action="link-tab"]').addEventListener('click', function () {
+          window.open(url, '_blank');
+        });
+      }
+    });
+  }
+
   function renderLinkedDocs(body, linked) {
     // get() có thể trả về { docs: {...} } hoặc map doctype → list
     if (linked && linked.docs && typeof linked.docs === 'object') {
@@ -727,7 +848,9 @@
     }
 
     var total = doctypes.reduce(function (n, k) { return n + linked[k].length; }, 0);
-    var html = '<input id="mbwnext-link-filter" placeholder="Tìm DocType hoặc name…" class="mbwnext-rpt-filter" />' +
+    var html =
+      '<div class="mbwnext-user-hint" style="margin-bottom:8px">Click tên document để xem nhanh tại chỗ (không rời form hiện tại).</div>' +
+      '<input id="mbwnext-link-filter" placeholder="Tìm DocType hoặc name…" class="mbwnext-rpt-filter" />' +
       '<div id="mbwnext-link-count" class="mbwnext-rpt-count">' + total + ' document · ' + doctypes.length + ' DocType</div>' +
       '<div id="mbwnext-link-body"></div>';
     body.innerHTML = html;
@@ -750,12 +873,12 @@
           '<div class="mbwnext-perm-table-wrap"><table class="mbwnext-perm-table"><tbody>' +
           rows.slice(0, 30).map(function (doc) {
             var name = doc.name || doc;
-            var url = '/app/' + slugDoctype(ldt) + '/' + encodeURIComponent(name);
-            return '<tr style="cursor:pointer" data-url="' + M.escHtml(url) + '">' +
+            return '<tr style="cursor:pointer" data-doctype="' + M.escHtml(ldt) + '" data-name="' + M.escHtml(name) + '">' +
               '<td class="mbwnext-wf-action" style="color:#1565c0">' + M.escHtml(name) + '</td>' +
-              '<td style="color:#6b7785;font-size:11px">' + M.escHtml(doc.modified || doc.status || '') + '</td></tr>';
+              '<td style="color:#6b7785;font-size:11px">' + M.escHtml(doc.status || doc.modified || '') + '</td>' +
+              '<td style="width:72px;text-align:right"><span class="mbwnext-btn" style="padding:2px 8px;font-size:11px">Xem</span></td></tr>';
           }).join('') +
-          (rows.length > 30 ? '<tr><td colspan="2" class="mbwnext-empty">… và ' + (rows.length - 30) + ' nữa</td></tr>' : '') +
+          (rows.length > 30 ? '<tr><td colspan="3" class="mbwnext-empty">… và ' + (rows.length - 30) + ' nữa</td></tr>' : '') +
           '</tbody></table></div></div>';
       });
       document.getElementById('mbwnext-link-count').textContent = shown + ' / ' + total + ' document';
@@ -764,8 +887,11 @@
 
     document.getElementById('mbwnext-link-filter').addEventListener('input', build);
     body.addEventListener('click', function (e) {
-      var row = e.target.closest('tr[data-url]');
-      if (row) window.open(row.dataset.url, '_blank');
+      var row = e.target.closest('tr[data-doctype][data-name]');
+      if (!row) return;
+      previewLinkedDoc(body, row.dataset.doctype, row.dataset.name, function () {
+        renderLinkedDocs(body, linked);
+      });
     });
     build();
     document.getElementById('mbwnext-link-filter').focus();
@@ -889,6 +1015,7 @@
   M.register({ section: 'trienkhai', group: 'data', id: 'import', label: 'Import CSV', kind: 'action', buttonText: 'Import', onClick: openImportCSV,
     helpDesc: 'Mở Data Import với DocType hiện tại đã chọn sẵn. Cảnh báo nếu DocType không cho phép import.' });
   M.register({ section: 'trienkhai', group: 'data', id: 'customfields', label: 'Custom Field list', kind: 'action', buttonText: 'Xem', onClick: openCustomFieldList,
+    shortcut: 'Alt+C',
     helpDesc: 'Liệt kê toàn bộ Custom Field của DocType: label, fieldname, type, insert after. Có tìm kiếm và Copy fieldname.' });
   M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'reports', label: 'Report', kind: 'action', buttonText: 'Xem', onClick: openReportList,
     helpDesc: 'Liệt kê Report theo DocType, tìm kiếm nhanh, click mở report tab mới. Hoạt động ở Form View và List View.' });
@@ -897,7 +1024,7 @@
   M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'permissions', label: 'Permission / Role', kind: 'action', buttonText: 'Xem', onClick: viewPermissions,
     helpDesc: 'Xem quyền user hiện tại và bảng DocPerm theo role (read, write, create, delete, submit, import…).' });
   M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'linkedwith', label: 'Linked With', kind: 'action', buttonText: 'Xem', onClick: openLinkedWith,
-    helpDesc: 'Xem document / DocType liên kết với bản ghi hoặc DocType đang mở. Click mở tab mới.' });
+    helpDesc: 'Xem document liên kết (vd. SI từ SO). Click để xem nhanh tại chỗ; có nút Mở form / Tab mới.' });
   M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'errorlog', label: 'Error Log gần đây', kind: 'action', buttonText: 'Xem', onClick: openErrorLog,
     helpDesc: '50 Error Log mới nhất toàn site, tìm theo method/nội dung lỗi, click 1 dòng để xem traceback đầy đủ + Copy. Cần quyền System Manager.' });
 })();
