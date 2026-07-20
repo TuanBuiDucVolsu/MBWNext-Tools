@@ -629,18 +629,275 @@
     });
   }
 
+  // ---------- Linked With ----------
+
+  function slugDoctype(dt) {
+    try {
+      if (window.frappe.router && window.frappe.router.slug) return window.frappe.router.slug(dt);
+      if (window.frappe.scrub) return window.frappe.scrub(dt, '-');
+    } catch (e) { /* fallthrough */ }
+    return String(dt || '').toLowerCase().replace(/\s+/g, '-');
+  }
+
+  function openLinkedWith() {
+    var frm = window.cur_frm;
+    var dt = (frm && frm.doctype) || getDoctype();
+    if (!dt) { M.notify('Không xác định được DocType', 'red'); return; }
+
+    var docname = null;
+    if (frm && frm.docname && !(frm.is_new && frm.is_new())) {
+      docname = frm.docname;
+    }
+
+    var body = M.showModal('Linked With — ' + dt + (docname ? ' ' + docname : ''));
+    var modal = document.querySelector('#mbwnext-modal-overlay .mbwnext-modal');
+    if (modal) modal.classList.add('mbwnext-modal-wide');
+
+    // Frappe 15: get(doctype, docname) — bắt buộc có docname
+    if (docname) {
+      window.frappe.call({
+        method: 'frappe.desk.form.linked_with.get',
+        args: { doctype: dt, docname: docname },
+        callback: function (r) {
+          renderLinkedDocs(body, r.message || {});
+        },
+        error: function () {
+          body.innerHTML = '<div class="mbwnext-empty">Không đọc được Linked With (thiếu quyền?).</div>';
+        }
+      });
+      return;
+    }
+
+    // Chưa mở document: chỉ liệt kê DocType liên kết (schema)
+    loadLinkedDoctypes(dt, body);
+  }
+
+  function loadLinkedDoctypes(dt, body) {
+    window.frappe.call({
+      method: 'frappe.desk.form.linked_with.get_linked_doctypes',
+      args: { doctype: dt },
+      callback: function (r) {
+        var info = r.message || {};
+        var keys = Object.keys(info);
+        if (!keys.length) {
+          body.innerHTML = '<div class="mbwnext-empty">Không tìm thấy DocType liên kết. Mở 1 document để xem bản ghi cụ thể.</div>';
+          return;
+        }
+        body.innerHTML =
+          '<div class="mbwnext-rpt-count">DocType liên kết với <b>' + M.escHtml(dt) + '</b> (mở 1 document để xem bản ghi cụ thể)</div>' +
+          '<div class="mbwnext-perm-table-wrap"><table class="mbwnext-perm-table">' +
+          '<thead><tr><th>DocType</th><th>Field / Quan hệ</th></tr></thead><tbody>' +
+          keys.map(function (k) {
+            var meta = info[k] || {};
+            var detail = meta.fieldname || meta.child_doctype || meta.doctype_fieldname || '—';
+            if (Array.isArray(detail)) detail = detail.join(', ');
+            return '<tr><td class="mbwnext-wf-state">' + M.escHtml(k) + '</td><td>' +
+              M.escHtml(String(detail)) + '</td></tr>';
+          }).join('') +
+          '</tbody></table></div>';
+      },
+      error: function () {
+        body.innerHTML = '<div class="mbwnext-empty">Không đọc được Linked With. Hãy mở 1 document đã lưu rồi thử lại.</div>';
+      }
+    });
+  }
+
+  function renderLinkedDocs(body, linked) {
+    // get() có thể trả về { docs: {...} } hoặc map doctype → list
+    if (linked && linked.docs && typeof linked.docs === 'object') {
+      linked = linked.docs;
+    }
+
+    var doctypes = Object.keys(linked || {}).filter(function (k) {
+      var v = linked[k];
+      return Array.isArray(v) ? v.length : (v && typeof v === 'object');
+    });
+
+    // Chuẩn hoá: một số version trả object thay vì array
+    doctypes.forEach(function (k) {
+      if (!Array.isArray(linked[k])) {
+        linked[k] = linked[k] ? [linked[k]] : [];
+      }
+    });
+    doctypes = doctypes.filter(function (k) { return linked[k].length; });
+
+    if (!doctypes.length) {
+      body.innerHTML = '<div class="mbwnext-empty">Không có document nào liên kết tới bản ghi này.</div>';
+      return;
+    }
+
+    var total = doctypes.reduce(function (n, k) { return n + linked[k].length; }, 0);
+    var html = '<input id="mbwnext-link-filter" placeholder="Tìm DocType hoặc name…" class="mbwnext-rpt-filter" />' +
+      '<div id="mbwnext-link-count" class="mbwnext-rpt-count">' + total + ' document · ' + doctypes.length + ' DocType</div>' +
+      '<div id="mbwnext-link-body"></div>';
+    body.innerHTML = html;
+
+    function build() {
+      var kw = (document.getElementById('mbwnext-link-filter').value || '').toLowerCase().trim();
+      var out = '';
+      var shown = 0;
+      doctypes.forEach(function (ldt) {
+        var rows = linked[ldt].filter(function (doc) {
+          if (!kw) return true;
+          var name = doc.name || doc;
+          return ldt.toLowerCase().indexOf(kw) >= 0 || String(name).toLowerCase().indexOf(kw) >= 0;
+        });
+        if (!rows.length) return;
+        shown += rows.length;
+        out += '<div style="margin-bottom:14px">' +
+          '<div class="mbwnext-section-label" style="border:none;margin:0 0 6px;padding:0">' + M.escHtml(ldt) +
+          ' <span style="font-weight:600;color:#9aa5b1">(' + rows.length + ')</span></div>' +
+          '<div class="mbwnext-perm-table-wrap"><table class="mbwnext-perm-table"><tbody>' +
+          rows.slice(0, 30).map(function (doc) {
+            var name = doc.name || doc;
+            var url = '/app/' + slugDoctype(ldt) + '/' + encodeURIComponent(name);
+            return '<tr style="cursor:pointer" data-url="' + M.escHtml(url) + '">' +
+              '<td class="mbwnext-wf-action" style="color:#1565c0">' + M.escHtml(name) + '</td>' +
+              '<td style="color:#6b7785;font-size:11px">' + M.escHtml(doc.modified || doc.status || '') + '</td></tr>';
+          }).join('') +
+          (rows.length > 30 ? '<tr><td colspan="2" class="mbwnext-empty">… và ' + (rows.length - 30) + ' nữa</td></tr>' : '') +
+          '</tbody></table></div></div>';
+      });
+      document.getElementById('mbwnext-link-count').textContent = shown + ' / ' + total + ' document';
+      document.getElementById('mbwnext-link-body').innerHTML = out || '<div class="mbwnext-empty">Không tìm thấy</div>';
+    }
+
+    document.getElementById('mbwnext-link-filter').addEventListener('input', build);
+    body.addEventListener('click', function (e) {
+      var row = e.target.closest('tr[data-url]');
+      if (row) window.open(row.dataset.url, '_blank');
+    });
+    build();
+    document.getElementById('mbwnext-link-filter').focus();
+  }
+
+  // ---------- Custom Field list ----------
+
+  function openCustomFieldList() {
+    var dt = getDoctype();
+    if (!dt && window.cur_frm) dt = window.cur_frm.doctype;
+    if (!dt) { M.notify('Không xác định được DocType', 'red'); return; }
+
+    var body = M.showModal('Custom Field — ' + dt);
+    var modal = document.querySelector('#mbwnext-modal-overlay .mbwnext-modal');
+    if (modal) modal.classList.add('mbwnext-modal-wide');
+
+    function renderList(list) {
+      if (!list.length) {
+        body.innerHTML = '<div class="mbwnext-empty">DocType này chưa có Custom Field.</div>';
+        return;
+      }
+
+      body.innerHTML =
+        '<input id="mbwnext-cf-filter" placeholder="Tìm label / fieldname…" class="mbwnext-rpt-filter" />' +
+        '<div id="mbwnext-cf-count" class="mbwnext-rpt-count">' + list.length + ' custom field</div>' +
+        '<div class="mbwnext-perm-table-wrap"><table class="mbwnext-perm-table">' +
+        '<thead><tr><th>Label</th><th>Fieldname</th><th>Type</th><th>After</th><th></th></tr></thead>' +
+        '<tbody id="mbwnext-cf-tbody"></tbody></table></div>' +
+        '<div class="mbwnext-perm-footer">' +
+          '<a class="mbwnext-link-btn" href="/app/customize-form?doc_type=' + encodeURIComponent(dt) + '" target="_blank" rel="noopener">Customize Form</a>' +
+        '</div>';
+
+      var tbody = body.querySelector('#mbwnext-cf-tbody');
+      var countEl = body.querySelector('#mbwnext-cf-count');
+      var filterInput = body.querySelector('#mbwnext-cf-filter');
+
+      function buildRows(kw) {
+        kw = (kw || '').toLowerCase().trim();
+        var matched = list.filter(function (f) {
+          if (!kw) return true;
+          return (f.label || '').toLowerCase().indexOf(kw) >= 0 ||
+            (f.fieldname || '').toLowerCase().indexOf(kw) >= 0 ||
+            (f.fieldtype || '').toLowerCase().indexOf(kw) >= 0;
+        });
+        countEl.textContent = matched.length + ' / ' + list.length + ' custom field';
+        if (!matched.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="mbwnext-empty">Không tìm thấy</td></tr>';
+          return;
+        }
+        tbody.innerHTML = matched.map(function (f) {
+          var flags = [];
+          if (f.reqd) flags.push('reqd');
+          if (f.hidden) flags.push('hidden');
+          return '<tr>' +
+            '<td style="font-weight:700">' + M.escHtml(f.label || f.fieldname || '') +
+            (flags.length ? '<div style="font-size:10px;color:#9aa5b1;margin-top:2px">' + M.escHtml(flags.join(', ')) + '</div>' : '') +
+            '</td>' +
+            '<td><code style="font-size:11px">' + M.escHtml(f.fieldname || '') + '</code></td>' +
+            '<td>' + M.escHtml(f.fieldtype || '') + '</td>' +
+            '<td style="font-size:11px;color:#6b7785">' + M.escHtml(f.insert_after || '—') + '</td>' +
+            '<td><button class="mbwnext-btn" data-copy="' + M.escHtml(f.fieldname || '') + '">Copy</button></td>' +
+            '</tr>';
+        }).join('');
+      }
+
+      filterInput.addEventListener('input', function () { buildRows(filterInput.value); });
+      tbody.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-copy]');
+        if (!btn) return;
+        M.copyText(btn.getAttribute('data-copy') || '', btn, '✓');
+      });
+      buildRows('');
+      filterInput.focus();
+    }
+
+    // Ưu tiên meta trên client (nhanh)
+    var fromMeta = [];
+    try {
+      var meta = window.frappe.get_meta && window.frappe.get_meta(dt);
+      if (meta && meta.fields) {
+        fromMeta = meta.fields.filter(function (f) {
+          return f.is_custom_field || f.custom;
+        }).map(function (f) {
+          return {
+            label: f.label,
+            fieldname: f.fieldname,
+            fieldtype: f.fieldtype,
+            insert_after: f.insert_after,
+            reqd: f.reqd,
+            hidden: f.hidden,
+          };
+        });
+      }
+    } catch (e) { /* ignore */ }
+
+    if (fromMeta.length) {
+      renderList(fromMeta);
+      return;
+    }
+
+    window.frappe.call({
+      method: 'frappe.client.get_list',
+      args: {
+        doctype: 'Custom Field',
+        filters: { dt: dt },
+        fields: ['name', 'label', 'fieldname', 'fieldtype', 'insert_after', 'reqd', 'hidden', 'options'],
+        order_by: 'idx asc',
+        limit_page_length: 200,
+      },
+      callback: function (r) { renderList(r.message || []); },
+      error: function () {
+        body.innerHTML = '<div class="mbwnext-empty">Không đọc được Custom Field (thiếu quyền?).</div>';
+      }
+    });
+  }
+
   // ---------- Đăng ký ----------
 
   M.register({ section: 'trienkhai', group: 'data', id: 'exportfields', label: 'Xuất field ra CSV', kind: 'action', buttonText: 'Xuất', onClick: exportFieldsCSV,
     helpDesc: 'Tải CSV metadata field (label, fieldname, fieldtype, mandatory, hidden…) làm tài liệu hoặc mapping data.' });
   M.register({ section: 'trienkhai', group: 'data', id: 'import', label: 'Import CSV', kind: 'action', buttonText: 'Import', onClick: openImportCSV,
     helpDesc: 'Mở Data Import với DocType hiện tại đã chọn sẵn. Cảnh báo nếu DocType không cho phép import.' });
+  M.register({ section: 'trienkhai', group: 'data', id: 'customfields', label: 'Custom Field list', kind: 'action', buttonText: 'Xem', onClick: openCustomFieldList,
+    helpDesc: 'Liệt kê toàn bộ Custom Field của DocType: label, fieldname, type, insert after. Có tìm kiếm và Copy fieldname.' });
   M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'reports', label: 'Report', kind: 'action', buttonText: 'Xem', onClick: openReportList,
     helpDesc: 'Liệt kê Report theo DocType, tìm kiếm nhanh, click mở report tab mới. Hoạt động ở Form View và List View.' });
   M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'workflow', label: 'Workflow states', kind: 'action', buttonText: 'Xem', onClick: viewWorkflow,
     helpDesc: 'Xem States (state, doc status, role edit) và Transitions (từ → action → đến, role) của workflow trên DocType.' });
   M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'permissions', label: 'Permission / Role', kind: 'action', buttonText: 'Xem', onClick: viewPermissions,
     helpDesc: 'Xem quyền user hiện tại và bảng DocPerm theo role (read, write, create, delete, submit, import…).' });
+  M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'linkedwith', label: 'Linked With', kind: 'action', buttonText: 'Xem', onClick: openLinkedWith,
+    helpDesc: 'Xem document / DocType liên kết với bản ghi hoặc DocType đang mở. Click mở tab mới.' });
   M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'errorlog', label: 'Error Log gần đây', kind: 'action', buttonText: 'Xem', onClick: openErrorLog,
     helpDesc: '50 Error Log mới nhất toàn site, tìm theo method/nội dung lỗi, click 1 dòng để xem traceback đầy đủ + Copy. Cần quyền System Manager.' });
 })();

@@ -6,9 +6,10 @@ Chrome extension (Manifest V3) hỗ trợ debug/dev/triển khai trên các site
 
 ### Người dùng / Vận hành
 
-- **Tìm field trên form** — tìm theo label/fieldname, click cuộn tới và tô sáng.
+- **Tìm field trên form** — tìm theo label/fieldname (có/không dấu tiếng Việt), click cuộn tới và tô sáng.
 - **Lịch sử gần đây** — document vừa mở (lưu local trên trình duyệt), click mở tab mới.
 - **Copy link chia sẻ** — copy link document đang mở để gửi đồng nghiệp.
+- **In nhanh** — mở printview / chọn Print Format của document.
 - **Attachments** — danh sách file đính kèm, mở/tải nhanh.
 - **Quyền của tôi** — tóm tắt Read/Write/Create/… và roles trên DocType hiện tại.
 - **Field bắt buộc trống** — liệt kê field `reqd` còn trống, tô đỏ, click nhảy tới.
@@ -36,9 +37,11 @@ Chrome extension (Manifest V3) hỗ trợ debug/dev/triển khai trên các site
 
 - **Xuất field ra CSV** — tải file CSV đầy đủ field của doctype (label, fieldname, fieldtype, options, mandatory, hidden…). Dùng làm tài liệu hoặc mapping data.
 - **Import CSV** — mở trang Data Import với doctype hiện tại đã chọn sẵn.
+- **Custom Field list** — liệt kê Custom Field của DocType (label, fieldname, type, insert after), tìm + Copy fieldname.
 - **Report** — liệt kê tất cả Report có ref_doctype là doctype đang xem, có filter tìm kiếm, click mở tab mới. Hoạt động cả ở List View và Form View.
 - **Xem Workflow states** — hiện bảng States + Transitions của workflow active trên doctype. Hoạt động cả ở List View.
 - **Xem Permission / Role** — hiện quyền user hiện tại và bảng DocPerm đầy đủ (role, level, read/write/create/delete/submit…).
+- **Linked With** — xem document/DocType liên kết với bản ghi hoặc DocType đang mở.
 - **Error Log gần đây** — 50 Error Log mới nhất toàn site, tìm theo method/nội dung lỗi, click 1 dòng để xem traceback đầy đủ + Copy. Không cần mở DocType nào, hoạt động ở mọi trang.
 
 ### Chung

@@ -334,6 +334,87 @@
     }).catch(function () { M.notify('Copy thất bại', 'red'); });
   }
 
+  // ---------- In nhanh ----------
+
+  function openQuickPrint() {
+    var frm = window.cur_frm;
+    if (!frm || !frm.doc) { M.notify('Không có document nào đang mở', 'red'); return; }
+    if (frm.is_new && frm.is_new()) { M.notify('Document chưa lưu, chưa in được', 'orange'); return; }
+
+    var dt = frm.doctype;
+    var name = frm.docname || frm.doc.name;
+    var body = M.showModal('In nhanh — ' + name);
+    var modal = document.querySelector('#mbwnext-modal-overlay .mbwnext-modal');
+    if (modal) modal.classList.add('mbwnext-modal-wide');
+
+    function openPrint(format) {
+      var url = '/printview?doctype=' + encodeURIComponent(dt) +
+        '&name=' + encodeURIComponent(name) +
+        '&trigger_print=0';
+      if (format) url += '&format=' + encodeURIComponent(format);
+      window.open(url, '_blank');
+    }
+
+    body.innerHTML =
+      '<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">' +
+        '<button class="mbwnext-btn" id="mbwnext-print-default" style="background:#2e7d32;color:#fff;border-color:#2e7d32">In mặc định</button>' +
+        '<button class="mbwnext-btn" id="mbwnext-print-dialog">Mở hộp thoại In</button>' +
+      '</div>' +
+      '<div class="mbwnext-user-hint">Hoặc chọn Print Format</div>' +
+      '<div id="mbwnext-print-list"><div class="mbwnext-empty">Đang tải Print Format…</div></div>';
+
+    body.querySelector('#mbwnext-print-default').addEventListener('click', function () {
+      openPrint('');
+    });
+    body.querySelector('#mbwnext-print-dialog').addEventListener('click', function () {
+      M.closeModal();
+      try {
+        if (typeof frm.print_doc === 'function') {
+          frm.print_doc();
+          return;
+        }
+      } catch (e) { /* fallthrough */ }
+      openPrint('');
+    });
+
+    window.frappe.call({
+      method: 'frappe.client.get_list',
+      args: {
+        doctype: 'Print Format',
+        filters: { doc_type: dt, disabled: 0 },
+        fields: ['name', 'standard', 'print_format_type'],
+        order_by: 'name asc',
+        limit_page_length: 50,
+      },
+      callback: function (r) {
+        var list = r.message || [];
+        var box = body.querySelector('#mbwnext-print-list');
+        if (!list.length) {
+          box.innerHTML = '<div class="mbwnext-empty">Không có Print Format riêng — dùng In mặc định.</div>';
+          return;
+        }
+        box.innerHTML = '<div class="mbwnext-user-list">' + list.map(function (pf, i) {
+          return '<div class="mbwnext-user-item" data-idx="' + i + '">' +
+            '<div><div class="mbwnext-user-item-title">' + M.escHtml(pf.name) + '</div>' +
+            '<div class="mbwnext-user-item-sub">' + M.escHtml(pf.print_format_type || 'Print Format') +
+            (pf.standard ? ' · Standard' : '') + '</div></div>' +
+            '<button class="mbwnext-btn" data-action="print">In</button></div>';
+        }).join('') + '</div>';
+        box._list = list;
+        box.addEventListener('click', function (e) {
+          var row = e.target.closest('.mbwnext-user-item');
+          if (!row || !box._list) return;
+          var pf = box._list[parseInt(row.dataset.idx, 10)];
+          if (pf) openPrint(pf.name);
+        });
+      },
+      error: function () {
+        body.querySelector('#mbwnext-print-list').innerHTML =
+          '<div class="mbwnext-empty">Không tải được Print Format. Vẫn có thể In mặc định.</div>';
+      }
+    });
+  }
+
   // ---------- Attachments ----------
 
   function openAttachments() {
@@ -516,6 +597,8 @@
     { keys: 'Alt+L', desc: 'Copy link chia sẻ' },
     { keys: 'Alt+H', desc: 'Lịch sử gần đây' },
     { keys: 'Alt+A', desc: 'Attachments' },
+    { keys: 'Alt+Y', desc: 'In nhanh' },
+    { keys: 'Alt+C', desc: 'Custom Field list' },
     { keys: 'Alt+R', desc: 'Field bắt buộc trống' },
     { keys: 'Alt+F', desc: 'Bật / tắt chế độ tập trung' },
     { keys: 'Alt+J', desc: 'Copy doc JSON (Dev)' },
@@ -602,34 +685,41 @@
       } else if (code === 'Slash' && !e.shiftKey) {
         openFindField();
         ran = true;
-      } else if (code === 'KeyL') {
+      } else if (code === 'KeyL' && !e.shiftKey) {
         copyShareLink();
         ran = true;
-      } else if (code === 'KeyH') {
+      } else if (code === 'KeyH' && !e.shiftKey) {
         openRecent();
         ran = true;
-      } else if (code === 'KeyA') {
+      } else if (code === 'KeyA' && !e.shiftKey) {
         openAttachments();
         ran = true;
-      } else if (code === 'KeyR') {
+      } else if ((code === 'KeyY' || key === 'y' || key === 'Y') && !e.shiftKey) {
+        // Không dùng Alt+P: trình duyệt/OS mở hộp thoại In hệ thống (menu File→Print)
+        openQuickPrint();
+        ran = true;
+      } else if (code === 'KeyC' && !e.shiftKey) {
+        clickFeature('customfields');
+        ran = true;
+      } else if (code === 'KeyR' && !e.shiftKey) {
         checkRequiredEmpty();
         ran = true;
-      } else if (code === 'KeyF') {
+      } else if (code === 'KeyF' && !e.shiftKey) {
         toggleFocusMode();
         ran = true;
-      } else if (code === 'KeyJ') {
+      } else if (code === 'KeyJ' && !e.shiftKey) {
         clickFeature('docjson');
         ran = true;
-      } else if (code === 'KeyI') {
+      } else if (code === 'KeyI' && !e.shiftKey) {
         clickFeature('inspect');
         ran = true;
-      } else if (code === 'KeyN') {
+      } else if (code === 'KeyN' && !e.shiftKey) {
         clickFeature('fieldnames');
         ran = true;
-      } else if (code === 'KeyG') {
+      } else if (code === 'KeyG' && !e.shiftKey) {
         clickFeature('getdoc');
         ran = true;
-      } else if (code === 'KeyV') {
+      } else if (code === 'KeyV' && !e.shiftKey) {
         clickFeature('version');
         ran = true;
       }
@@ -637,6 +727,7 @@
       if (ran) {
         e.preventDefault();
         e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
       }
     }, true);
   }
@@ -659,6 +750,11 @@
     helpDesc: 'Copy link document đang mở để gửi đồng nghiệp.'
   });
 
+  M.register({
+    section: 'nguoidung', group: 'info', id: 'quickprint', label: 'In nhanh',
+    kind: 'action', buttonText: 'In', onClick: openQuickPrint,
+    helpDesc: 'Mở printview hoặc chọn Print Format của document đang mở.'
+  });
   M.register({
     section: 'nguoidung', group: 'info', id: 'attachments', label: 'Attachments',
     kind: 'action', buttonText: 'Xem', onClick: openAttachments,
