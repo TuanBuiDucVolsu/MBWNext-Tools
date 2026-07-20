@@ -511,7 +511,7 @@
   // ---------- Phím tắt (prefix Alt) ----------
 
   var SHORTCUT_ROWS = [
-    { keys: 'Alt+M', desc: 'Mở / đóng panel MBWNext' },
+    { keys: 'Alt+M', desc: 'Mở danh sách Tool' },
     { keys: 'Alt+/', desc: 'Tìm field trên form' },
     { keys: 'Alt+L', desc: 'Copy link chia sẻ' },
     { keys: 'Alt+H', desc: 'Lịch sử gần đây' },

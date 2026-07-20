@@ -13,7 +13,7 @@ Chrome extension (Manifest V3) hỗ trợ debug/dev/triển khai trên các site
 - **Quyền của tôi** — tóm tắt Read/Write/Create/… và roles trên DocType hiện tại.
 - **Field bắt buộc trống** — liệt kê field `reqd` còn trống, tô đỏ, click nhảy tới.
 - **Chế độ tập trung** — ẩn tạm navbar/sidebar Frappe cho form rộng hơn.
-- **Phím tắt** — luôn bật (`Alt+M` panel, `Alt+/` tìm field…). `Esc` đóng modal. Nút **Xem bảng phím tắt** để xem đủ danh sách.
+- **Phím tắt** — luôn bật (`Alt+M` mở danh sách Tool, `Alt+/` tìm field…). `Esc` đóng modal. Nút **Xem bảng phím tắt** để xem đủ danh sách.
 
 ### Lập trình (Dev)
 
