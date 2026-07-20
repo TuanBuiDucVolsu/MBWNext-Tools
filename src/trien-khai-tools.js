@@ -515,7 +515,7 @@
     .mbwnext-err-copy:hover { background: rgba(255,255,255,.22); }
     .mbwnext-err-pre {
       margin: 0; padding: 0 10px 8px; max-height: 260px; overflow: auto;
-      font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 11px; color: #e0e0e0;
+      font-size: 11px; color: #e0e0e0;
       white-space: pre-wrap; word-break: break-word;
     }
     .mbwnext-link-btn {
@@ -631,16 +631,16 @@
 
   // ---------- Đăng ký ----------
 
-  M.register({ section: 'trienkhai', id: 'exportfields', label: 'Xuất field ra CSV', kind: 'action', buttonText: 'Xuất', onClick: exportFieldsCSV,
+  M.register({ section: 'trienkhai', group: 'data', id: 'exportfields', label: 'Xuất field ra CSV', kind: 'action', buttonText: 'Xuất', onClick: exportFieldsCSV,
     helpDesc: 'Tải CSV metadata field (label, fieldname, fieldtype, mandatory, hidden…) làm tài liệu hoặc mapping data.' });
-  M.register({ section: 'trienkhai', id: 'import', label: 'Import CSV', kind: 'action', buttonText: 'Import', onClick: openImportCSV,
+  M.register({ section: 'trienkhai', group: 'data', id: 'import', label: 'Import CSV', kind: 'action', buttonText: 'Import', onClick: openImportCSV,
     helpDesc: 'Mở Data Import với DocType hiện tại đã chọn sẵn. Cảnh báo nếu DocType không cho phép import.' });
-  M.register({ section: 'trienkhai', id: 'reports', label: 'Report', kind: 'action', buttonText: 'Xem', onClick: openReportList,
+  M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'reports', label: 'Report', kind: 'action', buttonText: 'Xem', onClick: openReportList,
     helpDesc: 'Liệt kê Report theo DocType, tìm kiếm nhanh, click mở report tab mới. Hoạt động ở Form View và List View.' });
-  M.register({ section: 'trienkhai', id: 'workflow', label: 'Xem Workflow states', kind: 'action', buttonText: 'Xem', onClick: viewWorkflow,
+  M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'workflow', label: 'Workflow states', kind: 'action', buttonText: 'Xem', onClick: viewWorkflow,
     helpDesc: 'Xem States (state, doc status, role edit) và Transitions (từ → action → đến, role) của workflow trên DocType.' });
-  M.register({ section: 'trienkhai', id: 'permissions', label: 'Xem Permission / Role', kind: 'action', buttonText: 'Xem', onClick: viewPermissions,
+  M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'permissions', label: 'Permission / Role', kind: 'action', buttonText: 'Xem', onClick: viewPermissions,
     helpDesc: 'Xem quyền user hiện tại và bảng DocPerm theo role (read, write, create, delete, submit, import…).' });
-  M.register({ section: 'trienkhai', id: 'errorlog', label: 'Error Log gần đây', kind: 'action', buttonText: 'Xem', onClick: openErrorLog,
+  M.register({ section: 'trienkhai', group: 'xemnhanh', id: 'errorlog', label: 'Error Log gần đây', kind: 'action', buttonText: 'Xem', onClick: openErrorLog,
     helpDesc: '50 Error Log mới nhất toàn site, tìm theo method/nội dung lỗi, click 1 dòng để xem traceback đầy đủ + Copy. Cần quyền System Manager.' });
 })();

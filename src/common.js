@@ -12,12 +12,29 @@
   if (window.MBWNext) return; // tránh khởi tạo 2 lần
 
   const STORAGE_KEY = 'mbwnext_tools_state_v1';
-  const SECTION_ORDER = ['dev', 'trienkhai'];
-  const SECTION_LABEL = { dev: 'Lập trình', trienkhai: 'Triển khai' };
-  const SECTION_ICON = { dev: '&#60;/&#62;', trienkhai: '&#9881;' };
+  const SECTION_ORDER = ['nguoidung', 'dev', 'trienkhai'];
+  const SECTION_LABEL = { nguoidung: 'Người dùng', dev: 'Lập trình', trienkhai: 'Triển khai' };
+  const SECTION_ICON = { nguoidung: '&#9787;', dev: '&#60;/&#62;', trienkhai: '&#9881;' };
+  // Nhóm con trong mỗi section — panel gọn nhờ accordion
+  const GROUP_ORDER = {
+    nguoidung: ['navigate', 'info', 'helpers'],
+    dev: ['overlay', 'copy', 'api', 'form'],
+    trienkhai: ['data', 'xemnhanh'],
+  };
+  const GROUP_LABEL = {
+    navigate: 'Điều hướng',
+    info: 'Thông tin',
+    helpers: 'Hỗ trợ',
+    overlay: 'Hiển thị field',
+    copy: 'Copy',
+    api: 'API & Info',
+    form: 'Form & Version',
+    data: 'Data',
+    xemnhanh: 'Xem nhanh',
+  };
 
   const state = {};
-  const features = [];   // { section, id, label, kind, stateKey, poll, scan, onToggle, buttonText, onClick }
+  const features = [];   // { section, group, id, label, kind, stateKey, poll, scan, onToggle, buttonText, onClick }
   const scanners = [];   // scan(ctx) — chạy mỗi nhịp polling
 
   // ---------- Helpers ----------
@@ -113,6 +130,74 @@
 
   function injectBaseStyles() {
     addStyles(`
+      /* Token chữ dùng chung toàn extension */
+      html {
+        --mbwnext-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --mbwnext-font-mono: ui-monospace, "SF Mono", "Fira Code", Consolas, "Liberation Mono", Menlo, monospace;
+        --mbwnext-fs: 13px;
+        --mbwnext-fs-sm: 12px;
+        --mbwnext-fs-xs: 11px;
+        --mbwnext-fs-xxs: 10px;
+      }
+
+      .mbwnext-fab,
+      .mbwnext-panel,
+      .mbwnext-modal-overlay,
+      .mbwnext-modal,
+      .mbwnext-tooltip,
+      .mbwnext-child-tooltip,
+      .mbwnext-api-overlay {
+        font-family: var(--mbwnext-font);
+      }
+
+      .mbwnext-mono,
+      .mbwnext-fieldname-tag,
+      .mbwnext-api-result,
+      .mbwnext-getdoc-result,
+      .mbwnext-err-pre,
+      .mbwnext-tooltip-body,
+      .mbwnext-tooltip-options,
+      .mbwnext-tooltip-options-list,
+      .mbwnext-tooltip code,
+      .mbwnext-tooltip pre,
+      .mbwnext-child-tooltip code,
+      .mbwnext-child-tooltip pre,
+      .mbwnext-api-overlay code,
+      .mbwnext-api-overlay pre {
+        font-family: var(--mbwnext-font-mono) !important;
+      }
+
+      /* Form controls kế thừa cùng font UI (ô code dùng mono riêng) */
+      .mbwnext-panel button,
+      .mbwnext-panel input,
+      .mbwnext-panel select,
+      .mbwnext-panel textarea,
+      .mbwnext-modal button,
+      .mbwnext-modal input,
+      .mbwnext-modal select,
+      .mbwnext-modal textarea,
+      .mbwnext-tooltip button,
+      .mbwnext-child-tooltip button,
+      .mbwnext-api-overlay button,
+      .mbwnext-api-overlay select,
+      .mbwnext-cf-form input,
+      .mbwnext-cf-form select,
+      .mbwnext-cf-form button,
+      .mbwnext-getdoc-body select,
+      .mbwnext-getdoc-body button,
+      .mbwnext-diff-pick select,
+      .mbwnext-rpt-filter {
+        font-family: var(--mbwnext-font) !important;
+      }
+
+      .mbwnext-api-body input,
+      .mbwnext-api-body textarea,
+      .mbwnext-getdoc-body input,
+      .mbwnext-getdoc-body textarea,
+      .mbwnext-cf-row textarea {
+        font-family: var(--mbwnext-font-mono) !important;
+      }
+
       .mbwnext-fab {
         position: fixed; bottom: 20px; right: 20px;
         width: 46px; height: 46px; border-radius: 50%;
@@ -121,7 +206,6 @@
         cursor: pointer; z-index: 999998;
         box-shadow: 0 6px 20px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.2); user-select: none;
         color: #ff5252; font-size: 20px; font-weight: 800;
-        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
         transition: transform .18s ease, box-shadow .18s ease;
       }
       .mbwnext-fab:hover { transform: scale(1.08) translateY(-1px); box-shadow: 0 10px 28px rgba(0,0,0,.32), 0 3px 8px rgba(0,0,0,.24); }
@@ -135,7 +219,7 @@
         position: fixed; bottom: 76px; right: 20px; width: 280px;
         background: #fff; border-radius: 16px;
         box-shadow: 0 20px 60px rgba(0,0,0,.18), 0 4px 16px rgba(0,0,0,.08); z-index: 999998;
-        font-family: -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 13px;
+        font-size: var(--mbwnext-fs);
         color: #1f2933; display: flex; flex-direction: column; max-height: 80vh; overflow: hidden;
         border: 1px solid rgba(0,0,0,.06);
         opacity: 0; visibility: hidden; pointer-events: none;
@@ -154,66 +238,82 @@
       }
       .mbwnext-help-btn {
         width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.6);
-        background: none; color: rgba(255,255,255,.8); font-size: 13px; font-weight: 800;
+        background: none; color: rgba(255,255,255,.8); font-size: var(--mbwnext-fs); font-weight: 800;
         cursor: pointer; display: flex; align-items: center; justify-content: center;
-        font-family: Georgia, serif; transition: all .15s; line-height: 1; padding: 0;
+        transition: all .15s; line-height: 1; padding: 0;
       }
       .mbwnext-help-btn:hover { background: rgba(255,255,255,.2); color: #fff; border-color: #fff; }
-      .mbwnext-panel-sub { padding: 10px 14px 0; font-size: 12px; color: #6b7785; font-weight: 600; flex-shrink: 0; }
+      .mbwnext-panel-sub { padding: 10px 14px 0; font-size: var(--mbwnext-fs-sm); color: #6b7785; font-weight: 600; flex-shrink: 0; }
       .mbwnext-panel-sub b { color: #1f2933; font-weight: 700; }
       .mbwnext-panel-search { padding: 8px 14px; flex-shrink: 0; }
       .mbwnext-panel-search input {
         width: 100%; box-sizing: border-box; border: 1px solid #e2e6ea; border-radius: 8px;
-        padding: 7px 10px; font-size: 12.5px; outline: none; background: #f7f8fa;
-        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+        padding: 7px 10px; font-size: var(--mbwnext-fs-sm); outline: none; background: #f7f8fa;
         transition: border-color .12s ease, background .12s ease;
       }
       .mbwnext-panel-search input:focus { border-color: #2e7d32; background: #fff; }
-      .mbwnext-panel-body { padding: 2px 14px 12px; overflow-y: auto; }
+      .mbwnext-panel-body { padding: 0 10px 10px; overflow-y: auto; }
       .mbwnext-section-label {
-        font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px;
-        color: #6b7785; margin: 12px 0 4px; padding: 6px 0 4px;
+        font-size: var(--mbwnext-fs-xxs); font-weight: 800; text-transform: uppercase; letter-spacing: .8px;
+        color: #6b7785; margin: 8px 0 4px; padding: 4px 0 2px;
         border-top: 1px solid #eef0f2;
         display: flex; align-items: center; gap: 5px;
       }
-      .mbwnext-section-label:first-child { border-top: none; margin-top: 6px; }
-      .mbwnext-section-icon { font-size: 12px; opacity: .7; }
-      .mbwnext-row {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 7px 0; transition: opacity .1s ease;
+      .mbwnext-section-label:first-child { border-top: none; margin-top: 4px; }
+      .mbwnext-section-icon { font-size: var(--mbwnext-fs-sm); opacity: .7; }
+      .mbwnext-group {
+        border: 1px solid #eef0f2; border-radius: 8px; margin-bottom: 6px; overflow: hidden;
+        background: #fafbfc;
       }
-      .mbwnext-row span { font-size: 13px; color: #1f2933; font-weight: 600; line-height: 1.3; }
+      .mbwnext-group-head {
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        width: 100%; border: none; background: transparent; cursor: pointer;
+        padding: 7px 10px; text-align: left;
+      }
+      .mbwnext-group-head:hover { background: #f3f5f7; }
+      .mbwnext-group-title {
+        font-size: var(--mbwnext-fs-sm); font-weight: 700; color: #1f2933; display: flex; align-items: center; gap: 6px;
+      }
+      .mbwnext-group-chevron {
+        font-size: var(--mbwnext-fs-xxs); color: #9aa5b1; transition: transform .15s ease; flex-shrink: 0;
+      }
+      .mbwnext-group.open .mbwnext-group-chevron { transform: rotate(90deg); }
+      .mbwnext-group-count {
+        font-size: var(--mbwnext-fs-xxs); font-weight: 700; color: #8a9aab; background: #eef1f5;
+        padding: 1px 6px; border-radius: 8px;
+      }
+      .mbwnext-group-count.has-on { background: #e8f5e9; color: #2e7d32; }
+      .mbwnext-group-body { display: none; padding: 0 8px 6px; background: #fff; border-top: 1px solid #eef0f2; }
+      .mbwnext-group.open .mbwnext-group-body { display: block; }
+      .mbwnext-row {
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        padding: 5px 2px; transition: opacity .1s ease;
+      }
+      .mbwnext-row > span:first-child {
+        font-size: var(--mbwnext-fs-sm); color: #1f2933; font-weight: 600; line-height: 1.25;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
       .mbwnext-row + .mbwnext-row { border-top: 1px solid #f5f6f7; }
       .mbwnext-btn {
-        background: #f5f6f8; border: 1px solid #e2e6ea; border-radius: 8px;
-        padding: 5px 14px; cursor: pointer; font-size: 11px; min-width: 50px;
-        font-weight: 700; color: #374151; transition: all .12s;
+        background: #f5f6f8; border: 1px solid #e2e6ea; border-radius: 6px;
+        padding: 3px 10px; cursor: pointer; font-size: var(--mbwnext-fs-xs); min-width: 44px;
+        font-weight: 700; color: #374151; transition: all .12s; flex-shrink: 0;
       }
       .mbwnext-btn:hover { background: #eef0f2; border-color: #c9ced4; }
       .mbwnext-switch {
-        position: relative; width: 38px; height: 21px; border-radius: 999px; flex-shrink: 0;
+        position: relative; width: 34px; height: 18px; border-radius: 999px; flex-shrink: 0;
         background: #d7dbe0; border: none; cursor: pointer; padding: 0;
         transition: background .18s ease;
       }
       .mbwnext-switch .mbwnext-switch-knob {
-        position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%;
+        position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
         background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);
         transition: transform .18s ease;
       }
       .mbwnext-switch.on { background: #2e7d32; }
-      .mbwnext-switch.on .mbwnext-switch-knob { transform: translateX(17px); }
+      .mbwnext-switch.on .mbwnext-switch-knob { transform: translateX(16px); }
       .mbwnext-switch:hover { background: #c5cad1; }
       .mbwnext-switch.on:hover { background: #256428; }
-
-      /* button/input/select/textarea không tự kế thừa font-family từ thẻ cha (khác div/span),
-         nên phải khai lại tường minh để đồng bộ với phần chữ còn lại của panel/modal/tooltip.
-         Trừ .mbwnext-help-btn (cố tình dùng Georgia serif cho icon "!"). */
-      .mbwnext-panel button:not(.mbwnext-help-btn), .mbwnext-panel input, .mbwnext-panel select, .mbwnext-panel textarea,
-      .mbwnext-modal button, .mbwnext-modal input, .mbwnext-modal select, .mbwnext-modal textarea,
-      .mbwnext-tooltip button, .mbwnext-tooltip input, .mbwnext-tooltip select, .mbwnext-tooltip textarea,
-      .mbwnext-api-overlay button, .mbwnext-api-overlay input, .mbwnext-api-overlay select, .mbwnext-api-overlay textarea {
-        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-      }
 
       .mbwnext-modal-overlay {
         position: fixed; inset: 0; background: rgba(0,0,0,.42); z-index: 9999990;
@@ -224,7 +324,7 @@
         background: #fff; border-radius: 16px; width: 560px; max-width: 92vw; max-height: 82vh;
         display: flex; flex-direction: column;
         box-shadow: 0 20px 60px rgba(0,0,0,.28); overflow: hidden;
-        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+        font-size: var(--mbwnext-fs);
         animation: mbwnextModalIn .16s ease;
       }
       @keyframes mbwnextModalIn {
@@ -232,41 +332,58 @@
         to { opacity: 1; transform: none; }
       }
       .mbwnext-modal-header {
-        background: linear-gradient(135deg, #2e7d32, #1b5e20); color: #fff; padding: 14px 18px; font-weight: 600; font-size: 14px;
+        background: linear-gradient(135deg, #2e7d32, #1b5e20); color: #fff; padding: 14px 18px; font-weight: 700; font-size: 14px;
         display: flex; justify-content: space-between; align-items: center;
       }
       .mbwnext-modal-header button { background: none; border: none; color: rgba(255,255,255,.7); font-size: 22px; cursor: pointer; padding: 0; line-height: 1; transition: color .1s; }
       .mbwnext-modal-header button:hover { color: #fff; }
-      .mbwnext-modal-body { padding: 18px; overflow: auto; font-size: 13px; color: #1f2933; }
-      .mbwnext-modal-body table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      .mbwnext-modal-body { padding: 18px; overflow: auto; font-size: var(--mbwnext-fs); color: #1f2933; line-height: 1.5; }
+      .mbwnext-modal-body table { width: 100%; border-collapse: collapse; font-size: var(--mbwnext-fs-sm); }
       .mbwnext-modal-body th, .mbwnext-modal-body td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f0f1f3; vertical-align: top; }
-      .mbwnext-modal-body th { color: #6b7785; font-weight: 600; background: #f8f9fb; position: sticky; top: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
+      .mbwnext-modal-body th { color: #6b7785; font-weight: 700; background: #f8f9fb; position: sticky; top: 0; font-size: var(--mbwnext-fs-xs); text-transform: uppercase; letter-spacing: .4px; }
+      .mbwnext-modal-body td { color: #1f2933; font-weight: 700; }
+      .mbwnext-modal-body td:last-child { font-weight: 600; }
       .mbwnext-modal-body tr:hover td { background: #f8f9fb; }
-      .mbwnext-modal-body .mbwnext-empty { color: #9aa5b1; padding: 8px 0; font-style: italic; font-size: 12px; }
-      .mbwnext-modal-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; background: #e8f5e9; color: #2e7d32; }
+      .mbwnext-modal-body .mbwnext-empty { color: #9aa5b1; padding: 8px 0; font-style: italic; font-size: var(--mbwnext-fs-sm); }
+      .mbwnext-modal-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: var(--mbwnext-fs-xxs); font-weight: 700; background: #e8f5e9; color: #2e7d32; }
       .mbwnext-modal-wide { width: 680px; max-width: 95vw; }
-      .mbwnext-help-note {
-        font-size: 13px; color: #6b7785; margin-bottom: 16px; padding: 10px 12px;
-        background: #f8f9fb; border-radius: 6px; line-height: 1.6;
+      /* Chặn CSS Frappe tô tím/mono cho <code> trong modal của ta */
+      .mbwnext-modal code,
+      .mbwnext-modal pre {
+        font-family: var(--mbwnext-font) !important;
+        font-size: inherit !important;
+        color: inherit !important;
+        background: transparent !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
       }
-      .mbwnext-help-section { margin-bottom: 18px; }
+      .mbwnext-site-sec {
+        margin: 14px 0 8px; font-weight: 700; font-size: var(--mbwnext-fs-sm);
+        color: #6b7785; text-transform: uppercase; letter-spacing: .4px;
+      }
+      .mbwnext-help-note {
+        font-size: var(--mbwnext-fs-sm); color: #6b7785; margin-bottom: 14px; padding: 10px 12px;
+        background: #f8f9fb; border-radius: 6px; line-height: 1.55;
+      }
+      .mbwnext-help-section { margin-bottom: 16px; }
       .mbwnext-help-section:last-of-type { margin-bottom: 0; }
       .mbwnext-help-section-title {
-        font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px;
+        font-size: var(--mbwnext-fs); font-weight: 800; text-transform: uppercase; letter-spacing: .6px;
         color: #2e7d32; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #e8f5e9;
         display: flex; align-items: center; gap: 6px;
       }
-      .mbwnext-help-item { margin-bottom: 14px; }
+      .mbwnext-help-item { margin-bottom: 12px; }
       .mbwnext-help-item:last-child { margin-bottom: 0; }
-      .mbwnext-help-item-name { font-weight: 700; font-size: 16px; color: #1f2933; margin-bottom: 4px; }
-      .mbwnext-help-item-desc { font-size: 14px; color: #4a5568; line-height: 1.6; }
+      .mbwnext-help-item-name { font-weight: 700; font-size: var(--mbwnext-fs); color: #1f2933; margin-bottom: 4px; }
+      .mbwnext-help-item-desc { font-size: var(--mbwnext-fs-sm); color: #4a5568; line-height: 1.55; }
       .mbwnext-help-item-kind {
         display: inline-block; margin-top: 5px; padding: 2px 8px; border-radius: 4px;
-        font-size: 12px; font-weight: 700; background: #eef1f5; color: #6b7785;
+        font-size: var(--mbwnext-fs-xxs); font-weight: 700; background: #eef1f5; color: #6b7785;
       }
       .mbwnext-help-footer {
-        font-size: 16px; color: #6b7785; border-top: 1px solid #eef0f2;
-        padding-top: 14px; margin-top: 16px; font-weight: 700; text-align: center;
+        font-size: var(--mbwnext-fs-sm); color: #6b7785; border-top: 1px solid #eef0f2;
+        padding-top: 12px; margin-top: 14px; font-weight: 700; text-align: center;
       }
     `);
   }
@@ -382,27 +499,91 @@
     badge.classList.toggle('show', anyOn);
   }
 
-  // Lọc danh sách tính năng theo từ khoá, ẩn luôn section rỗng
+  function groupKey(sec, groupId) {
+    return sec + ':' + groupId;
+  }
+
+  function isGroupOpen(sec, groupId, groupIndex) {
+    if (!state.groupOpen) state.groupOpen = {};
+    var key = groupKey(sec, groupId);
+    if (state.groupOpen[key] !== undefined) return !!state.groupOpen[key];
+    // Mặc định: chỉ mở nhóm đầu mỗi section
+    return groupIndex === 0;
+  }
+
+  function setGroupOpen(sec, groupId, open) {
+    if (!state.groupOpen) state.groupOpen = {};
+    state.groupOpen[groupKey(sec, groupId)] = !!open;
+    saveState();
+  }
+
+  function countActiveInGroup(list) {
+    return list.filter(function (f) {
+      return f.kind === 'toggle' && state[f.stateKey];
+    }).length;
+  }
+
+  function updateGroupCounts(panel) {
+    panel.querySelectorAll('.mbwnext-group').forEach(function (g) {
+      var countEl = g.querySelector('.mbwnext-group-count');
+      if (!countEl) return;
+      var on = 0;
+      g.querySelectorAll('.mbwnext-switch').forEach(function (sw) {
+        if (sw.classList.contains('on')) on++;
+      });
+      var total = g.querySelectorAll('.mbwnext-row').length;
+      countEl.textContent = on ? on + '/' + total : String(total);
+      countEl.classList.toggle('has-on', on > 0);
+    });
+  }
+
+  // Lọc theo từ khoá; khi đang search thì auto-mở nhóm có kết quả
   function filterFeatureRows(panel, query) {
     var q = query.trim().toLowerCase();
-    var sections = panel.querySelectorAll('.mbwnext-section-label');
+    var searching = !!q;
+
     panel.querySelectorAll('.mbwnext-row').forEach(function (row) {
       var match = !q || (row.dataset.label || '').indexOf(q) >= 0;
       row.style.display = match ? '' : 'none';
     });
-    sections.forEach(function (sec) {
+
+    panel.querySelectorAll('.mbwnext-group').forEach(function (g) {
+      var hasVisible = false;
+      g.querySelectorAll('.mbwnext-row').forEach(function (row) {
+        if (row.style.display !== 'none') hasVisible = true;
+      });
+      g.style.display = hasVisible ? '' : 'none';
+      if (searching && hasVisible) g.classList.add('open');
+      else if (!searching) {
+        var sec = g.dataset.section;
+        var gid = g.dataset.group;
+        var idx = parseInt(g.dataset.groupIndex || '0', 10);
+        g.classList.toggle('open', isGroupOpen(sec, gid, idx));
+      }
+    });
+
+    panel.querySelectorAll('.mbwnext-section-label').forEach(function (sec) {
       var hasVisible = false;
       var next = sec.nextElementSibling;
       while (next && !next.classList.contains('mbwnext-section-label')) {
-        if (next.classList.contains('mbwnext-row') && next.style.display !== 'none') hasVisible = true;
+        if (next.classList.contains('mbwnext-group') && next.style.display !== 'none') hasVisible = true;
         next = next.nextElementSibling;
       }
       sec.style.display = hasVisible ? '' : 'none';
     });
   }
 
+  function renderFeatureRow(f) {
+    var control = f.kind === 'toggle'
+      ? '<button class="mbwnext-switch" data-feature="' + f.id + '" role="switch" aria-checked="false"><span class="mbwnext-switch-knob"></span></button>'
+      : '<button class="mbwnext-btn" data-feature="' + f.id + '">' + escHtml(f.buttonText || 'Run') + '</button>';
+    return '<div class="mbwnext-row" data-label="' + escHtml(f.label.toLowerCase()) + '" title="' + escHtml(f.label) + '">' +
+      '<span>' + escHtml(f.label) + '</span>' + control + '</div>';
+  }
+
   function buildUI() {
     if (document.getElementById('mbwnext-fab')) return;
+    if (!state.groupOpen) state.groupOpen = {};
 
     var fab = document.createElement('div');
     fab.id = 'mbwnext-fab';
@@ -425,11 +606,33 @@
       if (!list.length) return;
       var icon = SECTION_ICON[sec] || '';
       html += '<div class="mbwnext-section-label"><span class="mbwnext-section-icon">' + icon + '</span> ' + escHtml(SECTION_LABEL[sec] || sec) + '</div>';
+
+      var order = GROUP_ORDER[sec] || [];
+      var grouped = {};
       list.forEach(function (f) {
-        var control = f.kind === 'toggle'
-          ? '<button class="mbwnext-switch" data-feature="' + f.id + '" role="switch" aria-checked="false"><span class="mbwnext-switch-knob"></span></button>'
-          : '<button class="mbwnext-btn" data-feature="' + f.id + '">' + escHtml(f.buttonText || 'Run') + '</button>';
-        html += '<div class="mbwnext-row" data-label="' + escHtml(f.label.toLowerCase()) + '"><span>' + escHtml(f.label) + '</span>' + control + '</div>';
+        var g = f.group || '_other';
+        if (!grouped[g]) grouped[g] = [];
+        grouped[g].push(f);
+      });
+      var groupIds = order.filter(function (g) { return grouped[g] && grouped[g].length; });
+      Object.keys(grouped).forEach(function (g) {
+        if (groupIds.indexOf(g) < 0) groupIds.push(g);
+      });
+
+      groupIds.forEach(function (gid, gIdx) {
+        var items = grouped[gid];
+        var open = isGroupOpen(sec, gid, gIdx);
+        var active = countActiveInGroup(items);
+        var countLabel = active ? active + '/' + items.length : String(items.length);
+        html += '<div class="mbwnext-group' + (open ? ' open' : '') + '" data-section="' + escHtml(sec) +
+          '" data-group="' + escHtml(gid) + '" data-group-index="' + gIdx + '">' +
+          '<button type="button" class="mbwnext-group-head" data-action="toggle-group">' +
+            '<span class="mbwnext-group-title"><span class="mbwnext-group-chevron">&#9654;</span> ' +
+            escHtml(GROUP_LABEL[gid] || gid) + '</span>' +
+            '<span class="mbwnext-group-count' + (active ? ' has-on' : '') + '">' + countLabel + '</span>' +
+          '</button>' +
+          '<div class="mbwnext-group-body">' + items.map(renderFeatureRow).join('') + '</div>' +
+          '</div>';
       });
     });
     html += '</div>';
@@ -441,10 +644,7 @@
 
     fab.addEventListener('click', function (e) {
       e.stopPropagation();
-      panel.classList.toggle('open');
-      var dtEl = document.getElementById('mbwnext-doctype');
-      if (dtEl) dtEl.textContent = (window.cur_frm && window.cur_frm.doctype) || '-';
-      if (panel.classList.contains('open')) setTimeout(function () { searchInput.focus(); }, 160);
+      togglePanel();
     });
     panel.addEventListener('click', function (e) { e.stopPropagation(); });
     document.addEventListener('click', function () { panel.classList.remove('open'); });
@@ -454,7 +654,17 @@
       openHelpModal();
     });
 
-    // Wire từng feature
+    panel.querySelectorAll('[data-action="toggle-group"]').forEach(function (head) {
+      head.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (searchInput.value.trim()) return;
+        var g = head.closest('.mbwnext-group');
+        if (!g) return;
+        g.classList.toggle('open');
+        setGroupOpen(g.dataset.section, g.dataset.group, g.classList.contains('open'));
+      });
+    });
+
     features.forEach(function (f) {
       var btn = panel.querySelector('[data-feature="' + f.id + '"]');
       if (!btn) return;
@@ -466,10 +676,10 @@
           setButtonState(btn, state[f.stateKey]);
           saveState();
           if (typeof f.onToggle === 'function') f.onToggle(state[f.stateKey]);
-          // chạy 1 nhịp ngay để áp/gỡ hiệu ứng, rồi bật/tắt polling
           runScans();
           refreshPolling();
           updateFabBadge();
+          updateGroupCounts(panel);
         });
       } else {
         btn.addEventListener('click', function () {
@@ -480,6 +690,7 @@
 
     refreshPolling();
     updateFabBadge();
+    updateGroupCounts(panel);
   }
 
   // ---------- Help modal (sinh từ features[].helpDesc) ----------
@@ -519,6 +730,17 @@
 
   // ---------- Expose API ----------
 
+  function togglePanel(forceOpen) {
+    var panel = document.getElementById('mbwnext-panel');
+    var searchInput = document.getElementById('mbwnext-search');
+    if (!panel) return;
+    var open = forceOpen === undefined ? !panel.classList.contains('open') : !!forceOpen;
+    panel.classList.toggle('open', open);
+    var dtEl = document.getElementById('mbwnext-doctype');
+    if (dtEl) dtEl.textContent = (window.cur_frm && window.cur_frm.doctype) || '-';
+    if (open && searchInput) setTimeout(function () { searchInput.focus(); }, 160);
+  }
+
   window.MBWNext = {
     state: state,
     register: register,
@@ -533,12 +755,13 @@
     runScans: runScans,
     showModal: showModal,
     closeModal: closeModal,
+    togglePanel: togglePanel,
   };
 
   // ---------- Init ----------
 
   waitForFrappe(function () {
-    // setTimeout(0): đảm bảo dev-tools.js / trien-khai-tools.js đã register xong
+    // setTimeout(0): đảm bảo các file feature đã register xong
     setTimeout(function () {
       loadState();
       injectBaseStyles();
