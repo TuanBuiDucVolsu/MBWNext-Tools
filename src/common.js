@@ -78,11 +78,42 @@
     alert(message);
   }
 
-  var _escDiv = null;
+  // Escape đủ cho cả text node lẫn giá trị attribute (bao gồm " và ')
   function escHtml(str) {
-    if (!_escDiv) _escDiv = document.createElement('div');
-    _escDiv.textContent = str;
-    return _escDiv.innerHTML;
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  /** Chuẩn hoá để tìm tiếng Việt không cần dấu: "hoa don" ≈ "Hóa đơn" */
+  function normalizeSearch(str) {
+    return String(str || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function slugDoctype(dt) {
+    try {
+      if (window.frappe && window.frappe.router && window.frappe.router.slug) return window.frappe.router.slug(dt);
+      if (window.frappe && window.frappe.scrub) return window.frappe.scrub(dt, '-');
+    } catch (e) { /* fallthrough */ }
+    return String(dt || '').toLowerCase().replace(/\s+/g, '-');
+  }
+
+  function formatDate(dt) {
+    try {
+      if (window.frappe && window.frappe.datetime && window.frappe.datetime.str_to_user) {
+        return window.frappe.datetime.str_to_user(dt);
+      }
+    } catch (e) { /* ignore */ }
+    return String(dt || '');
   }
 
   function _fallbackCopy(text) {
@@ -554,7 +585,7 @@
 
   // Lọc theo từ khoá; khi đang search thì auto-mở nhóm có kết quả
   function filterFeatureRows(panel, query) {
-    var q = query.trim().toLowerCase();
+    var q = normalizeSearch(query);
     var searching = !!q;
 
     panel.querySelectorAll('.mbwnext-row').forEach(function (row) {
@@ -596,7 +627,7 @@
     var labelAttrs = tip
       ? ' class="mbwnext-row-label" data-shortcut="' + escHtml(tip) + '"'
       : ' class="mbwnext-row-label"';
-    return '<div class="mbwnext-row" data-label="' + escHtml(f.label.toLowerCase()) + '">' +
+    return '<div class="mbwnext-row" data-label="' + escHtml(normalizeSearch(f.label)) + '">' +
       '<span' + labelAttrs + '>' + escHtml(f.label) + '</span>' + control + '</div>';
   }
 
@@ -815,6 +846,9 @@
     // helpers cho các file feature dùng chung
     notify: notify,
     escHtml: escHtml,
+    normalizeSearch: normalizeSearch,
+    slugDoctype: slugDoctype,
+    formatDate: formatDate,
     copyText: copyText,
     addStyles: addStyles,
     getFieldDomEl: getFieldDomEl,

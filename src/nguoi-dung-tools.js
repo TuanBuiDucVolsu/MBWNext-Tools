@@ -65,27 +65,10 @@
 
   // ---------- Helpers ----------
 
-  function slugDoctype(dt) {
-    try {
-      if (window.frappe.router && window.frappe.router.slug) return window.frappe.router.slug(dt);
-      if (window.frappe.scrub) return window.frappe.scrub(dt, '-');
-    } catch (e) { /* fallthrough */ }
-    return String(dt || '').toLowerCase().replace(/\s+/g, '-');
-  }
-
   function formUrl(doctype, docname) {
-    var slug = slugDoctype(doctype);
+    var slug = M.slugDoctype(doctype);
     if (docname) return window.location.origin + '/app/' + slug + '/' + encodeURIComponent(docname);
     return window.location.origin + '/app/' + slug;
-  }
-
-  function formatDate(dt) {
-    try {
-      if (window.frappe && window.frappe.datetime && window.frappe.datetime.str_to_user) {
-        return window.frappe.datetime.str_to_user(dt);
-      }
-    } catch (e) { /* ignore */ }
-    return String(dt || '');
   }
 
   function flashField(el) {
@@ -103,16 +86,7 @@
     return df.label || df.fieldname || '';
   }
 
-  /** Chuẩn hoá để tìm tiếng Việt không cần dấu: "hoa don" ≈ "Hóa đơn" */
-  function normalizeSearch(str) {
-    return String(str || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/đ/g, 'd')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
+  var normalizeSearch = M.normalizeSearch;
 
   function getFieldSearchLabels(field) {
     var df = field && field.df;
@@ -438,7 +412,7 @@
           return '<div class="mbwnext-att-row">' +
             '<div><div class="mbwnext-att-name">' + M.escHtml(name) + '</div>' +
             '<div class="mbwnext-att-meta">' + M.escHtml(f.file_size ? String(f.file_size) + ' bytes · ' : '') +
-            M.escHtml(formatDate(f.creation)) + '</div></div>' +
+            M.escHtml(M.formatDate(f.creation)) + '</div></div>' +
             (url
               ? '<a class="mbwnext-btn" href="' + M.escHtml(url) + '" target="_blank" rel="noopener">Mở</a>'
               : '') +
@@ -786,10 +760,7 @@
     helpDesc: 'Xem danh sách phím tắt Alt (luôn bật). Esc đóng modal.'
   });
 
-  // Ghi lịch sử khi đổi document (poll nhẹ qua onScan luôn chạy nếu có toggle poll —
-  // đăng ký scanner riêng không cần poll flag)
-  M.onScan(scanRecent);
-  // bật polling tối thiểu: dùng interval riêng cho recent
+  // Ghi lịch sử khi đổi document — dùng interval riêng (luôn chạy, không phụ thuộc toggle poll).
   setInterval(function () {
     try { scanRecent({ curFrm: window.cur_frm, doctype: window.cur_frm && window.cur_frm.doctype }); } catch (e) { /* ignore */ }
   }, 2000);

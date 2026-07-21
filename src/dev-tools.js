@@ -790,15 +790,6 @@
     try { return JSON.parse(raw); } catch (e) { return null; }
   }
 
-  function formatVersionDate(dt) {
-    try {
-      if (window.frappe && window.frappe.datetime && window.frappe.datetime.str_to_user) {
-        return window.frappe.datetime.str_to_user(dt);
-      }
-    } catch (e) { /* ignore */ }
-    return String(dt || '');
-  }
-
   function fmtVersionVal(v) {
     if (v === undefined || v === null || v === '') return '(trống)';
     if (typeof v === 'object') { try { return JSON.stringify(v); } catch (e) { return String(v); } }
@@ -810,7 +801,7 @@
     var data = parseVersionData(v.data);
     var html = '<div class="mbwnext-cl-entry">' +
       '<div class="mbwnext-cl-head"><span class="mbwnext-cl-owner">' + M.escHtml(v.owner || '') + '</span>' +
-      '<span class="mbwnext-cl-time">' + M.escHtml(formatVersionDate(v.creation)) + '</span></div>';
+      '<span class="mbwnext-cl-time">' + M.escHtml(M.formatDate(v.creation)) + '</span></div>';
 
     var lines = [];
     if (data) {
@@ -846,7 +837,7 @@
 
   function versionEntryToText(v) {
     var data = parseVersionData(v.data);
-    var lines = ['[' + formatVersionDate(v.creation) + '] ' + (v.owner || '')];
+    var lines = ['[' + M.formatDate(v.creation) + '] ' + (v.owner || '')];
     if (data) {
       (data.changed || []).forEach(function (c) {
         lines.push('  ' + c[0] + ': ' + fmtVersionVal(c[1]) + ' -> ' + fmtVersionVal(c[2]));
@@ -919,8 +910,8 @@
     if (!rows) {
       return '<div class="mbwnext-empty">Không thấy khác biệt field giữa 2 version đã chọn.</div>';
     }
-    return '<div class="mbwnext-rpt-count" style="margin-bottom:8px">A: ' + M.escHtml(formatVersionDate(va.creation)) +
-      ' (' + M.escHtml(va.owner || '') + ') → B: ' + M.escHtml(formatVersionDate(vb.creation)) +
+    return '<div class="mbwnext-rpt-count" style="margin-bottom:8px">A: ' + M.escHtml(M.formatDate(va.creation)) +
+      ' (' + M.escHtml(va.owner || '') + ') → B: ' + M.escHtml(M.formatDate(vb.creation)) +
       ' (' + M.escHtml(vb.owner || '') + ')</div>' +
       '<div class="mbwnext-perm-table-wrap"><table class="mbwnext-perm-table">' +
       '<thead><tr><th>Field</th><th>Version A</th><th>Version B</th></tr></thead>' +
@@ -936,7 +927,7 @@
 
     var canDiff = list.length >= 2;
     var options = list.map(function (v, i) {
-      return '<option value="' + i + '">#' + (i + 1) + ' · ' + M.escHtml(formatVersionDate(v.creation)) +
+      return '<option value="' + i + '">#' + (i + 1) + ' · ' + M.escHtml(M.formatDate(v.creation)) +
         ' · ' + M.escHtml(v.owner || '') + '</option>';
     }).join('');
 
@@ -1019,18 +1010,10 @@
 
   // ---------- Copy form URL ----------
 
-  function slugDoctype(dt) {
-    try {
-      if (window.frappe.router && window.frappe.router.slug) return window.frappe.router.slug(dt);
-      if (window.frappe.scrub) return window.frappe.scrub(dt, '-');
-    } catch (e) { /* fallthrough */ }
-    return String(dt || '').toLowerCase().replace(/\s+/g, '-');
-  }
-
   function copyFormUrl() {
     var frm = window.cur_frm;
     if (!frm || !frm.doctype) { M.notify('Không có form nào đang mở', 'red'); return; }
-    var slug = slugDoctype(frm.doctype);
+    var slug = M.slugDoctype(frm.doctype);
     var path;
     if (frm.docname && !(frm.is_new && frm.is_new())) {
       path = '/app/' + slug + '/' + encodeURIComponent(frm.docname);
@@ -1051,10 +1034,6 @@
 
     var body = M.showModal('Site / Version info');
     var versions = boot.versions || {};
-    var apps = boot.versions ? Object.keys(boot.versions) : (boot.sysdefaults && []) || [];
-    if (!apps.length && boot.app_data) {
-      apps = Object.keys(boot.app_data);
-    }
     // Frappe mới: boot.versions = { frappe: '15.x', erpnext: '15.x', ... }
     var versionRows = Object.keys(versions).map(function (app) {
       return '<tr><td>' + M.escHtml(app) + '</td><td>' + M.escHtml(String(versions[app])) + '</td></tr>';

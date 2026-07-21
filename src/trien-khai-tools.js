@@ -12,7 +12,6 @@
   if (!M) { console.error('[MBWNext] common.js chưa load'); return; }
 
   M.addStyles(`
-    .mbwnext-modal-wide { width: 680px; max-width: 95vw; }
     .mbwnext-perm-user-card {
       background: #f8f9fb; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px;
       border: 1px solid #eef0f2;
@@ -139,8 +138,8 @@
   // ---------- Xuất danh sách field ra CSV ----------
 
   function exportFieldsCSV() {
-    var dt = window.cur_frm && window.cur_frm.doctype;
-    if (!dt) { M.notify('Không có form nào đang mở', 'red'); return; }
+    var dt = getDoctype();
+    if (!dt) { M.notify('Không xác định được DocType', 'red'); return; }
     var meta = window.frappe.get_meta && window.frappe.get_meta(dt);
     if (!meta || !meta.fields) { M.notify('Không lấy được metadata của ' + dt, 'red'); return; }
 
@@ -527,15 +526,6 @@
     .mbwnext-link-btn:hover { background: #d7ecd8; border-color: #a5d6a7; }
   `);
 
-  function formatDate(dt) {
-    try {
-      if (window.frappe && window.frappe.datetime && window.frappe.datetime.str_to_user) {
-        return window.frappe.datetime.str_to_user(dt);
-      }
-    } catch (e) { /* ignore */ }
-    return String(dt || '');
-  }
-
   function firstLine(s) {
     s = String(s || '');
     var idx = s.indexOf('\n');
@@ -582,7 +572,7 @@
           ? '<span class="mbwnext-err-badge mbwnext-err-badge-seen">Đã xem</span>'
           : '<span class="mbwnext-err-badge mbwnext-err-badge-new">Mới</span>';
         return '<tr class="mbwnext-err-row" style="cursor:pointer" data-name="' + M.escHtml(e.name) + '">' +
-          '<td style="white-space:nowrap;color:#6b7785;font-size:11px">' + M.escHtml(formatDate(e.creation)) + '</td>' +
+          '<td style="white-space:nowrap;color:#6b7785;font-size:11px">' + M.escHtml(M.formatDate(e.creation)) + '</td>' +
           '<td style="font-weight:600">' + M.escHtml(truncate(e.method || '-', 40)) + '</td>' +
           '<td>' + M.escHtml(truncate(firstLine(e.error), 70)) + '</td>' +
           '<td style="text-align:center">' + badge + '</td></tr>';
@@ -630,14 +620,6 @@
   }
 
   // ---------- Linked With ----------
-
-  function slugDoctype(dt) {
-    try {
-      if (window.frappe.router && window.frappe.router.slug) return window.frappe.router.slug(dt);
-      if (window.frappe.scrub) return window.frappe.scrub(dt, '-');
-    } catch (e) { /* fallthrough */ }
-    return String(dt || '').toLowerCase().replace(/\s+/g, '-');
-  }
 
   function openLinkedWith() {
     var frm = window.cur_frm;
@@ -755,7 +737,7 @@
   }
 
   function previewLinkedDoc(body, doctype, name, onBack) {
-    var url = '/app/' + slugDoctype(doctype) + '/' + encodeURIComponent(name);
+    var url = '/app/' + M.slugDoctype(doctype) + '/' + encodeURIComponent(name);
     body.innerHTML = '<div class="mbwnext-empty">Đang tải ' + M.escHtml(doctype) + ' ' + M.escHtml(name) + '…</div>';
 
     window.frappe.call({
